@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PortOne V2 웹훅 서명 검증 테스트</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            max-width: 900px; 
+            margin: 30px auto; 
+            padding: 20px; 
+            line-height: 1.6;
+        }
+        .container { background: #f8f9fa; padding: 30px; border-radius: 10px; }
+        .section { 
+            background: white; 
+            padding: 25px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #007bff;
+        }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #495057; }
+        input, textarea, select { 
+            width: 100%; 
+            padding: 12px; 
+            border: 2px solid #e9ecef; 
+            border-radius: 6px; 
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+        textarea { height: 120px; resize: vertical; }
+        .btn {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 10px;
+            transition: all 0.3s;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3); }
+        .btn.danger { background: linear-gradient(135deg, #dc3545, #c82333); }
+        .btn.warning { background: linear-gradient(135deg, #ffc107, #e0a800); color: #212529; }
+        .result { 
+            margin-top: 20px; 
+            padding: 20px; 
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .success { background: #d4edda; border: 2px solid #28a745; color: #155724; }
+        .error { background: #f8d7da; border: 2px solid #dc3545; color: #721c24; }
+        .warning { background: #fff3cd; border: 2px solid #ffc107; color: #856404; }
+        .info { background: #d1ecf1; border: 2px solid #17a2b8; color: #0c5460; }
+        .code { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-radius: 4px; 
+            border: 1px solid #e9ecef;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .security-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 PortOne V2 웹훅 서명 검증 테스트</h1>
+        
+        <div class="security-info">
+            <h3>🛡️ 보안 기능</h3>
+            <p><strong>✅ HMAC-SHA256 서명 검증:</strong> 웹훅 요청의 무결성 확인</p>
+            <p><strong>✅ 타임스탬프 검증:</strong> Replay Attack 방지 (5분 허용 범위)</p>
+            <p><strong>✅ 상수 시간 비교:</strong> Timing Attack 방지</p>
+            <p><strong>✅ IP 추적:</strong> 요청 출처 로깅</p>
+        </div>
+
+        <div class="section">
+            <h3>📋 1. 웹훅 페이로드 설정</h3>
+            
+            <div class="form-group">
+                <label>웹훅 요청 본문 (JSON):</label>
+                <textarea id="requestBody" placeholder='{"paymentId": "pay_123456", "status": "PAID", "amount": 25000}'></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>웹훅 시크릿 (whsec_로 시작):</label>
+                <input type="text" id="webhookSecret" 
+                       value="whsec_IzOsJT0hX+AC8m86APWxn2tLfVbOkZ+dV0xZ/Q0RnE4=" 
+                       placeholder="whsec_your_webhook_secret_here">
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>🔧 2. 서명 생성 및 테스트</h3>
+            
+            <button class="btn" onclick="generateSignature()">🔐 서명 생성</button>
+            <button class="btn warning" onclick="testValidWebhook()">✅ 유효한 웹훅 테스트</button>
+            <button class="btn danger" onclick="testInvalidWebhook()">❌ 무효한 웹훅 테스트</button>
+            
+            <div class="result" id="signatureResult"></div>
+        </div>
+
+        <div class="section">
+            <h3>📡 3. 실제 웹훅 전송 테스트</h3>
+            
+            <div class="form-group">
+                <label>웹훅 엔드포인트:</label>
+                <input type="text" id="webhookUrl" value="http://localhost:8083/api/payments/webhook">
+            </div>
+            
+            <button class="btn" onclick="sendTestWebhook()">📤 테스트 웹훅 전송</button>
+            <button class="btn warning" onclick="sendWebhookWithoutSignature()">⚠️ 서명 없이 전송</button>
+            
+            <div class="result" id="webhookResult"></div>
+        </div>
+
+        <div class="section">
+            <h3>📖 4. 웹훅 검증 로직 설명</h3>
+            <div class="code">
+PortOne V2 서명 생성 과정:
+1. 페이로드 생성: timestamp + "." + requestBody
+2. HMAC-SHA256 계산: HMAC-SHA256(payload, base64_decode(webhook_secret))
+3. Base64 인코딩: base64_encode(hmac_result)
+
+검증 과정:
+1. 헤더에서 x-portone-signature, x-portone-request-timestamp 추출
+2. 동일한 방식으로 서명 재생성
+3. 상수 시간 비교로 서명 일치 확인
+4. 타임스탬프 유효성 검증 (5분 이내)
+            </div>
+        </div>
+    </div>
+    
+    <!-- Crypto-JS 라이브러리 로드 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    
+    <script>
+        // 전역 변수
+        window.lastSignature = null;
+        window.lastTimestamp = null;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            return { message: logEntry, type };
+        }
+
+        function displayResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const logResult = log(message, type);
+            
+            element.textContent += logResult.message;
+            element.className = `result ${type}`;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function clearResult(elementId) {
+            document.getElementById(elementId).textContent = '';
+        }
+
+        async function generateSignature() {
+            clearResult('signatureResult');
+            
+            try {
+                const requestBody = document.getElementById('requestBody').value.trim();
+                const webhookSecret = document.getElementById('webhookSecret').value.trim();
+                
+                if (!requestBody) {
+                    displayResult('signatureResult', '❌ 요청 본문을 입력해주세요.', 'error');
+                    return;
+                }
+                
+                if (!webhookSecret || !webhookSecret.startsWith('whsec_')) {
+                    displayResult('signatureResult', '❌ 올바른 웹훅 시크릿을 입력해주세요. (whsec_로 시작)', 'error');
+                    return;
+                }
+                
+                // 현재 타임스탬프 생성
+                const timestamp = Math.floor(Date.now() / 1000).toString();
+                
+                // 서명 생성
+                const signature = await createPortOneSignature(requestBody, timestamp, webhookSecret);
+                
+                displayResult('signatureResult', '🔐 서명 생성 성공!', 'success');
+                displayResult('signatureResult', `📅 타임스탬프: ${timestamp}`, 'info');
+                displayResult('signatureResult', `🔏 서명: ${signature}`, 'info');
+                displayResult('signatureResult', '\n📋 HTTP 헤더:', 'info');
+                displayResult('signatureResult', `x-portone-signature: ${signature}`, 'info');
+                displayResult('signatureResult', `x-portone-request-timestamp: ${timestamp}`, 'info');
+                
+                // 전역 변수에 저장 (테스트용)
+                window.lastSignature = signature;
+                window.lastTimestamp = timestamp;
+                
+            } catch (error) {
+                displayResult('signatureResult', `❌ 서명 생성 중 오류: ${error.message}`, 'error');
+                console.error('서명 생성 오류:', error);
+            }
+        }
+
+        async function createPortOneSignature(requestBody, timestamp, webhookSecret) {
+            try {
+                // whsec_ 접두사 제거
+                const cleanSecret = webhookSecret.startsWith('whsec_') 
+                    ? webhookSecret.substring(6) 
+                    : webhookSecret;
+                
+                // Base64 디코딩
+                const secretBytes = CryptoJS.enc.Base64.parse(cleanSecret);
+                
+                // 페이로드 생성: timestamp.requestBody
+                const payload = timestamp + '.' + requestBody;
+                
+                // HMAC-SHA256 서명 생성
+                const signature = CryptoJS.HmacSHA256(payload, secretBytes);
+                
+                // Base64로 인코딩하여 반환
+                return CryptoJS.enc.Base64.stringify(signature);
+                
+            } catch (error) {
+                throw new Error(`서명 생성 실패: ${error.message}`);
+            }
+        }
+
+        async function testValidWebhook() {
+            clearResult('webhookResult');
+            
+            try {
+                if (!window.lastSignature || !window.lastTimestamp) {
+                    displayResult('webhookResult', '⚠️ 먼저 "서명 생성" 버튼을 클릭해주세요.', 'warning');
+                    return;
+                }
+                
+                const requestBody = document.getElementById('requestBody').value.trim();
+                const webhookUrl = document.getElementById('webhookUrl').value.trim();
+                
+                displayResult('webhookResult', '📤 유효한 서명으로 웹훅 전송 중...', 'info');
+                
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-portone-signature': window.lastSignature,
+                        'x-portone-request-timestamp': window.lastTimestamp,
+                        'User-Agent': 'PortOne-Webhook-Test/1.0'
+                    },
+                    body: requestBody
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    displayResult('webhookResult', `✅ 웹훅 전송 성공! (${response.status})`, 'success');
+                    displayResult('webhookResult', `📄 응답: ${responseText}`, 'info');
+                } else {
+                    displayResult('webhookResult', `❌ 웹훅 전송 실패! (${response.status})`, 'error');
+                    displayResult('webhookResult', `📄 응답: ${responseText}`, 'error');
+                }
+                
+            } catch (error) {
+                displayResult('webhookResult', `❌ 웹훅 전송 중 오류: ${error.message}`, 'error');
+                console.error('웹훅 전송 오류:', error);
+            }
+        }
+
+        async function testInvalidWebhook() {
+            clearResult('webhookResult');
+            
+            try {
+                const requestBody = document.getElementById('requestBody').value.trim();
+                const webhookUrl = document.getElementById('webhookUrl').value.trim();
+                
+                displayResult('webhookResult', '📤 무효한 서명으로 웹훅 전송 중...', 'warning');
+                
+                const fakeSignature = 'invalid_signature_12345';
+                const fakeTimestamp = Math.floor(Date.now() / 1000).toString();
+                
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-portone-signature': fakeSignature,
+                        'x-portone-request-timestamp': fakeTimestamp,
+                        'User-Agent': 'PortOne-Webhook-Test/1.0'
+                    },
+                    body: requestBody
+                });
+                
+                const responseText = await response.text();
+                
+                displayResult('webhookResult', `📊 무효한 서명 테스트 결과 (${response.status}):`, 'warning');
+                displayResult('webhookResult', `📄 응답: ${responseText}`, 'warning');
+                
+                if (responseText.includes('signature_verification_failed')) {
+                    displayResult('webhookResult', '✅ 서명 검증이 올바르게 작동하고 있습니다!', 'success');
+                } else {
+                    displayResult('webhookResult', '⚠️ 서명 검증이 예상과 다르게 작동합니다.', 'warning');
+                }
+                
+            } catch (error) {
+                displayResult('webhookResult', `❌ 테스트 중 오류: ${error.message}`, 'error');
+                console.error('무효한 웹훅 테스트 오류:', error);
+            }
+        }
+
+        async function sendWebhookWithoutSignature() {
+            clearResult('webhookResult');
+            
+            try {
+                const requestBody = document.getElementById('requestBody').value.trim();
+                const webhookUrl = document.getElementById('webhookUrl').value.trim();
+                
+                displayResult('webhookResult', '📤 서명 없이 웹훅 전송 중...', 'warning');
+                
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'PortOne-Webhook-Test/1.0'
+                    },
+                    body: requestBody
+                });
+                
+                const responseText = await response.text();
+                
+                displayResult('webhookResult', `📊 서명 없는 요청 테스트 결과 (${response.status}):`, 'warning');
+                displayResult('webhookResult', `📄 응답: ${responseText}`, 'warning');
+                
+                if (responseText.includes('missing_headers')) {
+                    displayResult('webhookResult', '✅ 헤더 검증이 올바르게 작동하고 있습니다!', 'success');
+                } else if (responseText.includes('success_without_verification')) {
+                    displayResult('webhookResult', '⚠️ 개발 모드: 서명 검증 없이 처리되었습니다.', 'warning');
+                } else {
+                    displayResult('webhookResult', '🤔 예상과 다른 응답이 반환되었습니다.', 'info');
+                }
+                
+            } catch (error) {
+                displayResult('webhookResult', `❌ 테스트 중 오류: ${error.message}`, 'error');
+                console.error('서명 없는 웹훅 테스트 오류:', error);
+            }
+        }
+
+        async function sendTestWebhook() {
+            await generateSignature();
+            setTimeout(testValidWebhook, 500); // 서명 생성 후 잠시 대기
+        }
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', function() {
+            const defaultPayload = {
+                "paymentId": "pay_" + Math.random().toString(36).substr(2, 9),
+                "status": "PAID",
+                "amount": 25000,
+                "method": "CARD",
+                "orderId": "order_" + Math.random().toString(36).substr(2, 9),
+                "paidAt": new Date().toISOString()
+            };
+            
+            document.getElementById('requestBody').value = JSON.stringify(defaultPayload, null, 2);
+            
+            displayResult('signatureResult', '🚀 PortOne V2 웹훅 서명 검증 테스트 도구가 준비되었습니다.', 'info');
+            displayResult('signatureResult', '📋 1. 웹훅 페이로드와 시크릿을 확인하세요.', 'info');
+            displayResult('signatureResult', '📋 2. "서명 생성" 버튼을 클릭하여 유효한 서명을 만드세요.', 'info');
+            displayResult('signatureResult', '📋 3. "테스트 웹훅 전송" 버튼으로 실제 검증을 테스트하세요.', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew:*)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)",
+      "Bash(.gradlew:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(tail:*)",
+      "Bash(tasklist:*)",
+      "Bash(wmic:*)",
+      "Bash(gradlew.bat compileJava:*)"
+    ],
+    "deny": []
+  }
+}

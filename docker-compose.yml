@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: coubee-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.1
+    container_name: coubee-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.1
+    container_name: coubee-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+
+  coubee-app:
+    build: ./coubee
+    container_name: coubee-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      KAFKA_SERVERS: kafka:9092
+      PORTONE_API_URL: ${PORTONE_API_URL}
+      PORTONE_API_SECRET: ${PORTONE_API_SECRET}
+      LOG_LEVEL: ${LOG_LEVEL}
+      # JVM의 기본 인코딩을 UTF-8로 설정하여 한글 깨짐 방지
+      JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
+      LOG_SQL_LEVEL: ${LOG_SQL_LEVEL}
+      LOG_SQL_PARAM_LEVEL: ${LOG_SQL_PARAM_LEVEL}
+
+volumes:
+  mysql-data: 

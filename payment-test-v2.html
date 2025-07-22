@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PortOne V2 결제 테스트</title>
+    <!-- PortOne V2 Browser SDK -->
+    <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            max-width: 800px; 
+            margin: 50px auto; 
+            padding: 20px; 
+            line-height: 1.6;
+        }
+        .container { background: #f8f9fa; padding: 30px; border-radius: 10px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #495057; }
+        input, select { 
+            width: 100%; 
+            padding: 12px; 
+            border: 2px solid #e9ecef; 
+            border-radius: 6px; 
+            font-size: 16px;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        .btn {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3); }
+        .btn:disabled { background: #6c757d; cursor: not-allowed; transform: none; }
+        .result { 
+            margin-top: 25px; 
+            padding: 20px; 
+            background: white; 
+            border: 2px solid #e9ecef; 
+            border-radius: 6px;
+            white-space: pre-wrap;
+        }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        .step { 
+            background: white; 
+            padding: 20px; 
+            margin: 15px 0; 
+            border-radius: 6px; 
+            border-left: 4px solid #007bff;
+        }
+        .step h3 { margin-top: 0; color: #007bff; }
+        .config-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 PortOne V2 결제 테스트</h1>
+        
+        <div class="config-box">
+            <h3>⚙️ V2 설정 가이드</h3>
+            <p><strong>1.</strong> <a href="https://console.portone.io" target="_blank">PortOne 콘솔</a>에서 V2 계정 생성</p>
+            <p><strong>2.</strong> Store ID와 API Secret 발급</p>
+            <p><strong>3.</strong> 아래 설정 파일에 실제 값 입력:</p>
+            <pre>application.yml:
+portone:
+  v2:
+    store-id: "실제_스토어_ID"
+    api-secret: "실제_API_시크릿"</pre>
+        </div>
+
+        <div class="step">
+            <h3>🛍️ 1단계: 주문 정보 입력</h3>
+            
+            <div class="form-group">
+                <label>사용자 ID:</label>
+                <input type="number" id="userId" value="1">
+            </div>
+            
+            <div class="form-group">
+                <label>매장 ID:</label>
+                <input type="number" id="storeId" value="1">
+            </div>
+            
+            <div class="form-group">
+                <label>수령인 이름:</label>
+                <input type="text" id="recipientName" value="홍길동">
+            </div>
+            
+            <div class="form-group">
+                <label>결제 방법:</label>
+                <select id="paymentMethod">
+                    <option value="CARD">신용카드</option>
+                    <option value="KAKAOPAY">카카오페이</option>
+                    <option value="TOSSPAY">토스페이</option>
+                    <option value="PAYCO">페이코</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>상품 ID:</label>
+                <input type="number" id="productId" value="1">
+            </div>
+            
+            <div class="form-group">
+                <label>수량:</label>
+                <input type="number" id="quantity" value="2" min="1">
+            </div>
+            
+            <button class="btn" onclick="startPaymentFlow()">🚀 V2 결제 플로우 시작</button>
+        </div>
+        
+        <div class="step">
+            <h3>📱 2단계: V2 결제 진행</h3>
+            <button class="btn" id="paymentBtn" onclick="proceedPayment()" disabled>
+                💳 PortOne V2 결제 진행
+            </button>
+        </div>
+        
+        <div class="result" id="result"></div>
+    </div>
+    
+    <script>
+        const BASE_URL = 'http://localhost:8083';
+        let currentOrder = null;
+        let portoneConfig = null; // 설정값을 저장할 전역 변수
+        
+        function log(message, isError = false) {
+            const resultDiv = document.getElementById('result');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            
+            resultDiv.textContent += logEntry;
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.scrollTop = resultDiv.scrollHeight;
+            
+            console.log(message);
+        }
+
+        // 페이지 로드 시 설정값 가져오는 함수
+        async function fetchPaymentConfig() {
+            try {
+                log('⚙️ 백엔드에서 결제 설정 정보를 가져옵니다...');
+                const response = await fetch(`${BASE_URL}/api/payments/config`);
+                if (!response.ok) {
+                    throw new Error('설정 정보 로딩 실패');
+                }
+                const configResponse = await response.json();
+                portoneConfig = configResponse.data;
+                log(`✅ 결제 설정 로드 완료!`);
+                log(`   Store ID: ${portoneConfig.storeId}`);
+                log(`   사용 가능한 결제 수단: ${Object.keys(portoneConfig.channelKeys).join(', ')}`);
+            } catch (error) {
+                log(`❌ 설정 로드 실패: ${error.message}`, true);
+                throw error;
+            }
+        }
+        
+        async function startPaymentFlow() {
+            try {
+                document.getElementById('result').textContent = '';
+                log('🚀 PortOne V2 결제 플로우를 시작합니다...');
+                
+                // 0단계: 결제 설정 정보 로드
+                await fetchPaymentConfig();
+                
+                // 1단계: 백엔드에서 주문 생성
+                await createOrder();
+                
+                // 2단계: 결제 버튼 바로 활성화 (preparePayment 단계 제거)
+                if (currentOrder) { // 주문 생성이 성공했을 때만
+                    document.getElementById('paymentBtn').disabled = false;
+                    log('✅ 주문 생성 완료! 이제 "PortOne V2 결제 진행" 버튼을 클릭하세요.');
+                }
+                
+            } catch (error) {
+                log(`❌ 에러 발생: ${error.message}`, true);
+            }
+        }
+        
+        async function createOrder() {
+            const orderData = {
+                storeId: parseInt(document.getElementById('storeId').value),
+                recipientName: document.getElementById('recipientName').value,
+                paymentMethod: document.getElementById('paymentMethod').value,
+                items: [{
+                    productId: parseInt(document.getElementById('productId').value),
+                    quantity: parseInt(document.getElementById('quantity').value)
+                }]
+            };
+            
+            log('📝 주문 생성 중...');
+            
+            const response = await fetch(`${BASE_URL}/api/orders`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-ID': document.getElementById('userId').value
+                },
+                body: JSON.stringify(orderData)
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`주문 생성 실패 (${response.status}): ${errorText}`);
+            }
+            
+            currentOrder = await response.json();
+            log(`✅ 주문 생성 성공!`);
+            log(`   주문 ID: ${currentOrder.data.orderId}`);
+            log(`   결제 ID: ${currentOrder.data.paymentId}`);
+            log(`   금액: ${currentOrder.data.amount.toLocaleString()}원`);
+        }
+        
+        
+        async function proceedPayment() {
+            if (!currentOrder) {
+                log('❌ 주문이 생성되지 않았습니다. 먼저 주문 정보를 입력하고 플로우를 시작하세요.', true);
+                return;
+            }
+            
+            if (!portoneConfig) {
+                log('❌ 결제 설정 정보가 없습니다. 플로우를 다시 시작해주세요.', true);
+                return;
+            }
+            
+            try {
+                log('🎯 PortOne V2 결제창을 호출합니다...');
+                
+                // PortOne V2 결제 요청
+                if (!window.PortOne) {
+                    throw new Error('PortOne V2 SDK가 로드되지 않았습니다.');
+                }
+                
+                // 선택된 결제 수단에 맞는 채널 키 동적 조회
+                const selectedPayMethodKey = document.getElementById('paymentMethod').value;
+                const channelKey = portoneConfig.channelKeys[selectedPayMethodKey.toLowerCase()];
+
+                if (!channelKey) {
+                    log(`❌ 설정 오류: '${selectedPayMethodKey}'에 대한 채널 키를 찾을 수 없습니다.`, true);
+                    log('💡 application.yml과 채널 키 설정을 확인하세요.', true);
+                    return;
+                }
+                
+                log(`   - 스토어 ID: ${portoneConfig.storeId}`);
+                log(`   - 채널 키 (${selectedPayMethodKey}): ${channelKey}`);
+                log(`   - 결제 ID: ${currentOrder.data.paymentId}`);
+
+                const response = await window.PortOne.requestPayment({
+                    // Store ID
+                    storeId: portoneConfig.storeId,
+                    
+                    // 채널 키 (어떤 결제창을 띄울지 결정)
+                    channelKey: channelKey,
+                    
+                    // 주문 정보
+                    paymentId: currentOrder.data.paymentId,
+                    orderName: currentOrder.data.orderName,
+                    totalAmount: currentOrder.data.amount,
+                    currency: "KRW",
+                    
+                    // 구매자 정보
+                    customer: {
+                        fullName: currentOrder.data.buyerName,
+                        phoneNumber: "010-1234-5678", // 테스트용 번호
+                        email: "test@example.com" // 테스트용 이메일
+                    },
+
+                    // 결제 수단 (PortOne에서 필수 파라미터)
+                    payMethod: selectedPayMethodKey,
+                    
+                    // 콜백 URL
+                    redirectUrl: `${window.location.origin}/payment-complete?orderId=${currentOrder.data.orderId}`,
+                    notificationUrls: [`${BASE_URL}/api/payments/webhook`]
+                });
+                
+                // 결제 결과 처리
+                if (response.code != null) {
+                    // 결제 실패
+                    log(`❌ 결제 실패: ${response.message}`, true);
+                } else {
+                    // 결제 성공
+                    log(`🎉 결제 성공!`);
+                    log(`   결제 ID: ${response.paymentId}`);
+                    log(`   거래 ID: ${response.txId}`);
+                    
+                    // 백엔드에 결제 완료 알림 (웹훅 대신 직접 호출)
+                    await notifyPaymentComplete(response.paymentId);
+                }
+                
+            } catch (error) {
+                if (error.message.includes('PortOne') || error.message.includes('SDK')) {
+                    log('⚠️ PortOne V2 SDK가 로드되지 않았거나 설정이 필요합니다.', true);
+                    log('💡 실제 테스트를 위해 다음이 필요합니다:', true);
+                    log('   1. PortOne 콘솔에서 V2 계정 생성', true);
+                    log('   2. Store ID와 Channel Key 발급', true);
+                    log('   3. application.yml에 실제 설정값 입력', true);
+                } else {
+                    log(`❌ 결제 과정에서 오류: ${error.message}`, true);
+                }
+            }
+        }
+        
+        async function notifyPaymentComplete(paymentId) {
+            try {
+                log('📞 결제 완료를 백엔드에 알립니다...');
+                
+                const response = await fetch(`${BASE_URL}/api/payments/webhook?paymentId=${paymentId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    log('✅ 결제 완료 처리 성공!');
+                } else {
+                    log('⚠️ 결제 완료 처리 중 오류 발생');
+                }
+                
+            } catch (error) {
+                log(`⚠️ 백엔드 통신 오류: ${error.message}`);
+            }
+        }
+        
+        // PortOne V2 SDK 로드 확인
+        function checkPortOneSDK() {
+            if (typeof window.PortOne !== 'undefined') {
+                log('✅ PortOne V2 SDK 로드 완료!');
+                return true;
+            } else {
+                log('❌ PortOne V2 SDK가 로드되지 않았습니다.', true);
+                log('💡 네트워크 연결을 확인하거나 페이지를 새로고침 해보세요.', true);
+                return false;
+            }
+        }
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', function() {
+            log('🔧 PortOne V2 테스트 페이지가 로드되었습니다.');
+            log('📋 1단계: 주문 정보를 입력하고 "V2 결제 플로우 시작" 버튼을 클릭하세요.');
+            
+            // 2초 후 SDK 로드 확인
+            setTimeout(checkPortOneSDK, 2000);
+        });
+    </script>
+</body>
+</html>

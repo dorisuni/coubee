@@ -1,0 +1,11 @@
+cloud:
+  aws:
+    s3:
+      bucket: test
+    region:
+      static: ap-northeast-2
+    credentials:
+      access-key: YOUR_ACCESS_KEY
+      secret-key: YOUR_SECRET_KEY
+    cloudfront:
+      domain: cdn.example.com
