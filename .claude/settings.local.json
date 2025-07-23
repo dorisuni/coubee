@@ -10,7 +10,13 @@
       "Bash(tail:*)",
       "Bash(tasklist:*)",
       "Bash(wmic:*)",
-      "Bash(gradlew.bat compileJava:*)"
+      "Bash(gradlew.bat compileJava:*)",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(chmod:*)",
+      "Bash(export GRADLE_USER_HOME=/tmp/.gradle)",
+      "Bash(gradle:*)",
+      "Bash(cmd /c:*)"
     ],
     "deny": []
   }

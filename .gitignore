@@ -1,15 +1,12 @@
 ### Java ###
-# 컴파일된 클래스 파일
 *.class
-
-# 로그 파일
 *.log
-
-# BlueJ 파일
 *.ctxt
-
-# Mobile Tools for Java (J2ME)
 .mtj.tmp/
+
+### Claude ###
+.claude
+.claude/
 
 # 패키지 파일 #
 *.jar
@@ -20,7 +17,7 @@
 *.tar.gz
 *.rar
 
-# 가상 머신 크래시 로그, http://www.java.com/en/download/help/error_hotspot.xml
+# 가상 머신 크래시 로그
 hs_err_pid*
 replay_pid*
 
@@ -30,28 +27,31 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
 out/
+# 추가적으로 IntelliJ에서 생성하는 캐시 파일들
+.idea_modules/
+*.class
 
 ### Eclipse ###
-.apt_generated
+.apt_generated/
 .classpath
 .factorypath
 .project
-.settings
+.settings/
 .springBeans
-.sts4-cache
+.sts4-cache/
 bin/
 
 ### NetBeans ###
 /nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
 
 ### VS Code ###
 .vscode/
@@ -59,34 +59,33 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-### 프로젝트 특정 파일 ###
-# 환경 설정 파일
+### 환경 설정 파일 ###
 *.env
 *.env.local
 *.env.development
 *.env.test
 *.env.production
-
-# 단, 프로젝트에서 사용하는 기본 .env 파일은 포함 (개발 편의성)
 !.env
 
-# 로컬 설정 파일
+### 로컬 설정 파일 ###
 application-local.yml
 application-local.properties
 
-# Docker 볼륨
+### Docker 볼륨 ###
 /docker/volumes/
 
-# 테스트 리포트
+### 테스트 리포트 ###
 /test-results/
 
-# 기타
-# HELP.md 파일은 버전 관리에 포함하는 것이 일반적이므로, 제외가 필요할 경우에만 사용하세요.
+### 기타 ###
 .c9/
 *.launch
 *.sublime-workspace
 
-# Node.js
+### Node.js ###
 node_modules/
 npm-debug.log
-yarn-error.log 
+yarn-error.log
+
+### cloudflared 파일 ###
+../cloudflared-linux-amd64.deb
