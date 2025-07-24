@@ -16,7 +16,15 @@
       "Bash(chmod:*)",
       "Bash(export GRADLE_USER_HOME=/tmp/.gradle)",
       "Bash(gradle:*)",
-      "Bash(cmd /c:*)"
+      "Bash(cmd /c:*)",
+      "Bash(./run_coubee_local.sh:*)",
+      "Bash(./run_coubee_local_wsl.sh:*)",
+      "Bash(timeout 5 curl -s http://localhost:8761/actuator/health)",
+      "Bash(node:*)",
+      "Bash(mkdir:*)",
+      "Bash(find:*)",
+      "Bash(true)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   }

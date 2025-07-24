@@ -24,14 +24,12 @@ public class UserAuthController {
 
     @PostMapping(value = "/signup")
     public ApiResponseDto<String> register(@RequestBody @Valid SiteUserRegisterDto registerDto) {
-        log.info("signup!!!!!!!!!!!!");
         siteUserService.registerUserAndNotify(registerDto);
         return ApiResponseDto.defaultOk();
     }
 
     @PostMapping(value = "/login")
     public ApiResponseDto<TokenDto.AccessRefreshToken> login(@RequestBody @Valid SiteUserLoginDto loginDto) {
-        log.info("login!!!!!!!!!!!!");
         TokenDto.AccessRefreshToken token = siteUserService.login(loginDto);
         return ApiResponseDto.createOk(token);
     }

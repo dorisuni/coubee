@@ -9,6 +9,7 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JwtTokenValidator {
     private final JwtConfigProperties configProperties;
 
@@ -39,7 +41,9 @@ public class JwtTokenValidator {
 
     public JwtAuthentication validateToken(String token) {
         String username = null;
-
+        String nickname = null;
+        String userId = null;
+        String role = null;
         final Claims claims = this.verifyAndGetClaims(token);
         if (claims == null) {
             return null;
@@ -49,17 +53,17 @@ public class JwtTokenValidator {
         if (expirationDate == null || expirationDate.before(new Date())) {
             return null;
         }
-
+        userId = claims.get("userId", String.class);
         username = claims.get("username", String.class);
-
+        nickname = claims.get("nickname", String.class);
+        role = claims.get("role", String.class);
         String tokenType = claims.get("tokenType", String.class);
         if (!"access".equals(tokenType)) {
             return null;
         }
-
-        UserPrincipal principal = new UserPrincipal(username);
-
-        return new JwtAuthentication(principal, token, getGrantedAuthorities("user"));
+        log.info("role :{}", role);
+        UserPrincipal principal = new UserPrincipal(userId,username,nickname,role);
+        return new JwtAuthentication(principal, token, getGrantedAuthorities(role));
     }
 
     private Claims verifyAndGetClaims(String token) {

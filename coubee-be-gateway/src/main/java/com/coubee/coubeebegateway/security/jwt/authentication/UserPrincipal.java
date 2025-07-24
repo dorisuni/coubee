@@ -10,6 +10,9 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class UserPrincipal implements Principal {
     private final String userId;
+    private final String username;
+    private final String nickName;
+    private final String role;
 
     public boolean hasMandatory() {
         return userId != null;

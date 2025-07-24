@@ -30,10 +30,6 @@ public class CoubeeUser extends BaseTimeEntity{
     @Getter @Setter
     private String nickname;
 
-    @Column(name = "profile_image_url")
-    @Getter @Setter
-    private String profileImageUrl;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     @Getter @Setter
@@ -41,11 +37,10 @@ public class CoubeeUser extends BaseTimeEntity{
 
 
     @Builder
-    public CoubeeUser(String username, String password,String nickname, Role role, String profileImageUrl) {
+    public CoubeeUser(String username, String password,String nickname, Role role) {
         this.username = username;
         this.password = password;
         this.nickname = nickname;
-        this.profileImageUrl = profileImageUrl;
         this.role = role;
     }
 }

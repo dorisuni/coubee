@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.coubee'
-version = '0.0.1-SNAPSHOT'
+version = '0.0.1'
 
 java {
     toolchain {
@@ -37,24 +37,29 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'com.mysql:mysql-connector-j:8.4.0'
-
     implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-gson:0.12.5'
-    runtimeOnly 'com.h2database:h2'
 
+    implementation 'org.postgresql:postgresql:42.7.3'
+    implementation 'org.hibernate:hibernate-spatial:6.5.2.Final'
+
+    // AWS SDK
     implementation 'software.amazon.awssdk:s3:2.25.22'
     implementation 'software.amazon.awssdk:auth'
 
+    // Kafka
     implementation 'org.springframework.kafka:spring-kafka'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
 
+    // Lombok
     compileOnly 'org.projectlombok:lombok'
-    testCompileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
 
-
+    // DB for test
+    runtimeOnly 'com.h2database:h2'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -66,4 +71,20 @@ dependencyManagement {
 }
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+jar {
+    enabled = false // plain.jar 생성 완전히 비활성화
+}
+
+tasks.register('getAppName') {
+    doLast {
+        println "${rootProject.name}"
+    }
+}
+
+tasks.register('getAppVersion') {
+    doLast {
+        println "${project.version}"
+    }
 }

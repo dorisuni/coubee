@@ -40,7 +40,7 @@ public class TestUserInitializer {
                     .nickname("테스트관리자")
                     .role(Role.ROLE_SUPER_ADMIN)
                     .build();
-            siteUserRepository.save(testAdmin);
+            siteUserRepository.save(testSuperAdmin);
             System.out.println("✅ 테스트 고객 유저 생성 완료: " + testUsername);
             System.out.println("✅ 테스트 점장 유저 생성 완료: " + testAdminName);
             System.out.println("✅ 테스트 관리자 유저 생성 완료: " + testSuperAdminName);

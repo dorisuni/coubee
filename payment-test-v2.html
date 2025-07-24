@@ -216,11 +216,23 @@ portone:
         </div>
 
         <div class="step">
+            <h3>🔐 사용자 인증</h3>
+            <div class="form-group">
+                <label>테스트 사용자 선택:</label>
+                <select id="userTypeSelect" onchange="switchUserType(this.value)">
+                    <option value="user">일반 사용자 (test_user)</option>
+                    <option value="admin">관리자 (test_admin)</option>
+                    <option value="superAdmin">슈퍼 관리자 (test_super_admin)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="step">
             <h3>🛍️ 1단계: 주문 정보 입력</h3>
             
             <div class="form-group">
                 <label>사용자 ID:</label>
-                <input type="number" id="userId" value="1">
+                <input type="number" id="userId" value="1" readonly>
             </div>
             
             <div class="form-group">
@@ -338,6 +350,33 @@ portone:
         let currentOrder = null;
         let portoneConfig = null; // 설정값을 저장할 전역 변수
         
+        // 테스트용 JWT 토큰들 (15분간 유효)
+        const TEST_TOKENS = {
+            user: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjb3ViZWUiLCJzdWIiOiJ0ZXN0X3VzZXIiLCJ1c2VySWQiOiIxIiwidXNlcm5hbWUiOiJ0ZXN0X3VzZXIiLCJuaWNrbmFtZSI6Iu2FjOyKpO2KuOycoOyggCIsInJvbGUiOiJST0xFX1VTRVIiLCJ0b2tlblR5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3NTMyNTk4NzEsImV4cCI6MTc1MzI2MDc3MX0.JvowuiBj8mMcl6-z1d21rAcs2BaeSfHn-4VN8Aa5USg',
+            admin: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjb3ViZWUiLCJzdWIiOiJ0ZXN0X2FkbWluIiwidXNlcklkIjoiMiIsInVzZXJuYW1lIjoidGVzdF9hZG1pbiIsIm5pY2tuYW1lIjoi7YWM7Iqk7Yq47KCQ7J6lIiwicm9sZSI6IlJPTEVfQURNSU4iLCJ0b2tlblR5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3NTMyNTk4NzEsImV4cCI6MTc1MzI2MDc3MX0.S6VXM5Qi-hLTjmzbOJ81LAiOs_NbmHEteEAoB1CI_xQ',
+            superAdmin: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjb3ViZWUiLCJzdWIiOiJ0ZXN0X3N1cGVyX2FkbWluIiwidXNlcklkIjoiMyIsInVzZXJuYW1lIjoidGVzdF9zdXBlcl9hZG1pbiIsIm5pY2tuYW1lIjoi7YWM7Iqk7Yq46rSA66as7J6QIiwicm9sZSI6IlJPTEVfU1VQRVJfQURNSU4iLCJ0b2tlblR5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3NTMyNTk4NzEsImV4cCI6MTc1MzI2MDc3MX0.x3se640zW94XVkIm11c91c2w4rAobTbvgdXnBgnVYh4'
+        };
+        
+        // 현재 선택된 사용자 유형
+        let currentUserType = 'user';
+        
+        // 인증 헤더 생성 함수
+        function getAuthHeaders() {
+            const token = TEST_TOKENS[currentUserType];
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+        
+        // 사용자 타입 변경 함수
+        function switchUserType(userType) {
+            currentUserType = userType;
+            const userId = userType === 'user' ? '1' : userType === 'admin' ? '2' : '3';
+            document.getElementById('userId').value = userId;
+            log(`🔄 사용자 타입 변경: ${userType} (ID: ${userId})`);
+        }
+        
         function log(message, isError = false) {
             const resultDiv = document.getElementById('result');
             const timestamp = new Date().toLocaleTimeString();
@@ -368,7 +407,9 @@ portone:
         async function fetchPaymentConfig() {
             try {
                 log('⚙️ 백엔드에서 결제 설정 정보를 가져옵니다...');
-                const response = await fetch(`${BASE_URL}/api/payments/config`);
+                const response = await fetch(`${BASE_URL}/api/payments/config`, {
+                    headers: getAuthHeaders()
+                });
                 if (!response.ok) {
                     throw new Error('설정 정보 로딩 실패');
                 }
@@ -418,12 +459,12 @@ portone:
             
             log('📝 주문 생성 중...');
             
+            const headers = getAuthHeaders();
+            headers['X-User-ID'] = document.getElementById('userId').value;
+            
             const response = await fetch(`${BASE_URL}/api/orders`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-User-ID': document.getElementById('userId').value
-                },
+                headers: headers,
                 body: JSON.stringify(orderData)
             });
             
@@ -553,9 +594,7 @@ portone:
                 
                 const response = await fetch(`${BASE_URL}/api/payments/webhook?paymentId=${paymentId}`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    headers: getAuthHeaders()
                 });
                 
                 if (response.ok) {
@@ -575,10 +614,11 @@ portone:
                 log('📱 수령 QR 코드를 생성합니다...');
                 
                 // 주문 정보 다시 조회하여 최신 상태 확인
+                const headers = getAuthHeaders();
+                headers['X-User-ID'] = document.getElementById('userId').value;
+                
                 const orderResponse = await fetch(`${BASE_URL}/api/orders/${orderId}`, {
-                    headers: {
-                        'X-User-ID': document.getElementById('userId').value
-                    }
+                    headers: headers
                 });
                 
                 if (!orderResponse.ok) {
@@ -645,7 +685,9 @@ portone:
             try {
                 log(`🔍 QR 토큰으로 주문을 조회합니다: ${qrToken}`);
                 
-                const response = await fetch(`${BASE_URL}/api/qr/lookup/${qrToken}`);
+                const response = await fetch(`${BASE_URL}/api/qr/lookup/${qrToken}`, {
+                    headers: getAuthHeaders()
+                });
                 
                 if (!response.ok) {
                     throw new Error(`조회 실패 (${response.status}): ${await response.text()}`);
@@ -679,9 +721,7 @@ portone:
                 
                 const response = await fetch(`${BASE_URL}/api/orders/${orderId}/receive`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    headers: getAuthHeaders()
                 });
                 
                 if (!response.ok) {
@@ -706,10 +746,11 @@ portone:
             try {
                 log(`📋 사용자 ${userId}의 주문 목록을 조회합니다...`);
                 
+                const headers = getAuthHeaders();
+                headers['X-User-ID'] = userId;
+                
                 const response = await fetch(`${BASE_URL}/api/users/${userId}/orders?page=0&size=10`, {
-                    headers: {
-                        'X-User-ID': userId
-                    }
+                    headers: headers
                 });
                 
                 if (!response.ok) {
@@ -746,7 +787,9 @@ portone:
             try {
                 log(`💳 결제 상태를 조회합니다: ${paymentId}`);
                 
-                const response = await fetch(`${BASE_URL}/api/payments/${paymentId}/status`);
+                const response = await fetch(`${BASE_URL}/api/payments/${paymentId}/status`, {
+                    headers: getAuthHeaders()
+                });
                 
                 if (!response.ok) {
                     throw new Error(`조회 실패 (${response.status}): ${await response.text()}`);
@@ -776,9 +819,7 @@ portone:
                 
                 const response = await fetch(`${BASE_URL}/api/orders/${orderId}`, {
                     method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         status: newStatus
                     })
@@ -803,6 +844,8 @@ portone:
         // 페이지 로드 시 초기화
         window.addEventListener('load', function() {
             log('🔧 PortOne V2 테스트 페이지가 로드되었습니다.');
+            log('🔐 현재 사용자: 일반 사용자 (test_user, ID: 1)');
+            log('💡 다른 권한으로 테스트하려면 사용자 인증 섹션에서 변경하세요.');
             log('📋 1단계: 주문 정보를 입력하고 "V2 결제 플로우 시작" 버튼을 클릭하세요.');
             
             // 2초 후 SDK 로드 확인

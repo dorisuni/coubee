@@ -1,25 +1,25 @@
 # ===================================================================
-# Coubee 마이크로서비스 전체 중지 스크립트 (PowerShell)
+# Coubee Microservices Stop All Script (PowerShell)
 # ===================================================================
-# 경고: 이 스크립트는 실행 중인 모든 'java' 프로세스를 강제 종료합니다.
-# 다른 중요한 Java 애플리케이션이 실행 중이지 않은지 확인하고 사용하세요.
+# WARNING: This script will forcibly terminate all running 'java' processes.
+# Make sure no other important Java applications are running before use.
 # ===================================================================
 
-# --- 1단계: 모든 Java 프로세스 중지 ---
-Write-Host "✅ 1. 실행 중인 모든 Spring Boot 애플리케이션 (java.exe)을 중지합니다..."
+# --- Step 1: Stop all Java processes ---
+Write-Host "✅ 1. Stopping all running Spring Boot applications (java.exe)..."
 $javaProcesses = Get-Process -Name "java" -ErrorAction SilentlyContinue
 if ($javaProcesses) {
     Stop-Process -Name "java" -Force
-    Write-Host "   - Java 프로세스들을 모두 종료했습니다."
+    Write-Host "   - All Java processes have been terminated."
 } else {
-    Write-Host "   - 실행 중인 Java 프로세스가 없습니다."
+    Write-Host "   - No running Java processes found."
 }
 
 
-# --- 2단계: Docker 컨테이너 중지 및 삭제 ---
-Write-Host "✅ 2. Docker 컨테이너 (MySQL, Kafka)를 중지하고 관련 볼륨을 삭제합니다..."
+# --- Step 2: Stop and remove Docker containers and volumes ---
+Write-Host "✅ 2. Stopping Docker containers (MySQL, Kafka) and removing related volumes..."
 docker-compose down -v
-Write-Host "   - Docker 리소스가 모두 정리되었습니다."
+Write-Host "   - All Docker resources have been cleaned up."
 
 
-Write-Host "⏹️ 모든 서비스가 성공적으로 중지되었습니다."
+Write-Host "⏹️ All services have been successfully stopped."

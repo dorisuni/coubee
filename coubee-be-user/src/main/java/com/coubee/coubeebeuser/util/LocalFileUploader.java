@@ -1,6 +1,8 @@
 package com.coubee.coubeebeuser.util;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -8,16 +10,22 @@ import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
 
+@Profile("stg")
 @Slf4j
 @Component
 public class LocalFileUploader implements FileUploader {
 
-    private static final String BASE_DIR = "src/main/resources/static/image";
+    @Value("${file.upload.base-dir}")
+    private String baseDir;
 
+    @Value("${file.upload.resource-url}")
+    private String resourceUrl;
     @Override
     public String upload(MultipartFile file, String dirName) {
-        String fileName = dirName + "/" + UUID.randomUUID() + getExtension(file.getOriginalFilename());
-        File dest = new File(BASE_DIR + "/" + fileName);
+        String uuid = UUID.randomUUID().toString();
+        String ext = getExtension(file.getOriginalFilename());
+        String fileName = dirName + "/" + uuid + ext;
+        File dest = new File(baseDir + File.separator + fileName);
         dest.getParentFile().mkdirs();
 
         try {
@@ -26,13 +34,12 @@ public class LocalFileUploader implements FileUploader {
             throw new RuntimeException("로컬 파일 업로드 실패", e);
         }
 
-        return "/image/" + fileName; // 클라이언트 접근 경로
+        // 웹 URL 경로로 반환
+        return resourceUrl.replace("**", "") + fileName.replace(File.separator, "/");
     }
-
     @Override
     public void delete(String fileUrl) {
-        String path = "src/main/resources/static" + fileUrl; // ex: /image/xxx.png
-        File file = new File(path);
+        File file = new File(fileUrl);
         if (file.exists()) {
             file.delete();
         }
@@ -40,5 +47,10 @@ public class LocalFileUploader implements FileUploader {
 
     private String getExtension(String filename) {
         return filename.substring(filename.lastIndexOf("."));
+    }
+
+    private static String getDesktopPath() {
+        String home = System.getProperty("user.home");
+        return home + File.separator + "Desktop"; // Mac/Linux/Windows 호환 바탕화면 경로
     }
 }

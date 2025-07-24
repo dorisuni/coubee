@@ -2,11 +2,13 @@ package com.coubee.coubeebegateway.gateway.filter;
 
 import com.coubee.coubeebegateway.common.util.HttpUtils;
 import com.coubee.coubeebegateway.security.jwt.authentication.UserPrincipal;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.servlet.function.ServerRequest;
 
 import java.util.function.Function;
 
+@Slf4j
 public class AuthenticationHeaderFilterFunction {
     public static Function<ServerRequest, ServerRequest> addHeader() {
         return request -> {
@@ -15,7 +17,10 @@ public class AuthenticationHeaderFilterFunction {
             Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             if( principal instanceof UserPrincipal userPrincipal) {
                 requestBuilder.header("X-Auth-UserId", userPrincipal.getUserId());
-
+                requestBuilder.header("X-Auth-UserName", userPrincipal.getUsername());
+                requestBuilder.header("X-Auth-UserNickName", userPrincipal.getNickName());
+                requestBuilder.header("X-Auth-Role", userPrincipal.getRole());
+                log.info("role : {}",userPrincipal.getRole());
                 // 필요시 권한 정보 입력
                 // requestBuilder.header("X-Auth-Authorities", ...);
             }
