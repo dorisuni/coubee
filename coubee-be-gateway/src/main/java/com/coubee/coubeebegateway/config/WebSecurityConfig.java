@@ -1,6 +1,8 @@
 package com.coubee.coubeebegateway.config;
 
 import com.coubee.coubeebegateway.security.filter.JwtAuthenticationFilter;
+import com.coubee.coubeebegateway.security.handler.CustomAccessDeniedHandler;
+import com.coubee.coubeebegateway.security.handler.CustomAuthenticationEntryPoint;
 import com.coubee.coubeebegateway.security.jwt.JwtTokenValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -22,6 +24,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class WebSecurityConfig {
     private final JwtTokenValidator jwtTokenValidator;
+    private final CustomAuthenticationEntryPoint authenticationEntryPoint;
+    private final CustomAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public SecurityFilterChain applicationSecurity(HttpSecurity http) throws Exception {
@@ -38,6 +42,10 @@ public class WebSecurityConfig {
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenValidator),
                         UsernamePasswordAuthenticationFilter.class
+                )
+                .exceptionHandling(exceptionHandling -> exceptionHandling
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
                 )
                 .authorizeHttpRequests(registry -> registry
                         .requestMatchers("/api/user/auth/**").permitAll()

@@ -109,6 +109,31 @@ if [ ! -z "$gradle_daemons" ]; then
   fi
 fi
 
+# Clean Gradle cache and build files
+echo ""
+print_color $GREEN "✅ Cleaning Gradle cache and build files..."
+read -p "Do you want to clean Gradle build cache? (./gradlew clean for all services) (Y/N) " clean_gradle
+if [[ $clean_gradle == [Yy]* ]]; then
+  print_color $YELLOW "   Cleaning coubee-be-eureka..."
+  cd coubee-be-eureka && ./gradlew clean > /dev/null 2>&1 && cd ..
+  
+  print_color $YELLOW "   Cleaning coubee-be-gateway..."
+  cd coubee-be-gateway && ./gradlew clean > /dev/null 2>&1 && cd ..
+  
+  print_color $YELLOW "   Cleaning coubee-be-user..."
+  cd coubee-be-user && ./gradlew clean > /dev/null 2>&1 && cd ..
+  
+  print_color $YELLOW "   Cleaning coubee-be-order..."
+  cd coubee-be-order && ./gradlew clean > /dev/null 2>&1 && cd ..
+  
+  print_color $YELLOW "   Cleaning coubee-be-store..."
+  cd coubee-be-store && ./gradlew clean > /dev/null 2>&1 && cd ..
+  
+  print_color $GREEN "   All Gradle build files have been cleaned."
+else
+  print_color $YELLOW "   Gradle build files will be kept."
+fi
+
 # Script end message
 echo ""
 print_color $CYAN "===================================================="
