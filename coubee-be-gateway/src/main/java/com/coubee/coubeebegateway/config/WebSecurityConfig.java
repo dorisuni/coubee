@@ -50,7 +50,9 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(registry -> registry
                         .requestMatchers("/api/user/auth/**").permitAll()
                         .requestMatchers("/api/store/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/store/su").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/store/su/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/product/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/product/su/**").hasRole("SUPER_ADMIN")
                         .anyRequest().authenticated()
                 );
 

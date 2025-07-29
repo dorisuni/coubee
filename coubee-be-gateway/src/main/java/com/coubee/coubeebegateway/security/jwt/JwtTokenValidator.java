@@ -85,6 +85,10 @@ public class JwtTokenValidator {
     private List<GrantedAuthority> getGrantedAuthorities(String role) {
         ArrayList<GrantedAuthority> grantedAuthorities = new ArrayList<>();
         if (role != null) {
+            log.info("getGrantedAuthorities role: {}", role);
+            if (!role.startsWith("ROLE_")) {
+                role = "ROLE_" + role;
+            }
             grantedAuthorities.add(new SimpleGrantedAuthority(role));
         }
         return grantedAuthorities;
