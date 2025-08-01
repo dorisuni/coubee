@@ -25,44 +25,47 @@ echo "================================================="
 if kubectl get namespace kafka &> /dev/null; then
   echo "Kafka namespace already exists. Skipping Kafka deployment."
 else
-  # Create namespace
-  echo "Creating Kafka namespace..."
-  kubectl apply -f coubee-kafka/manifests/00-namespace.yaml
+  echo "🚀 Deploying All-in-One Kafka (Zookeeper + Kafka in single container)..."
+  kubectl apply -f simple-kafka-allinone.yaml
 
-  # Deploy Zookeeper
-  echo "Deploying Zookeeper..."
-  kubectl apply -f coubee-kafka/manifests/01-zookeeper.yaml
-
-  # Wait for Zookeeper to be ready (only first pod for faster deployment)
-  echo "Waiting for Zookeeper to be ready..."
-  kubectl wait --for=condition=ready pod/zookeeper-0 -n kafka --timeout=300s
-
-  # Deploy Kafka
-  echo "Deploying Kafka..."
-  kubectl apply -f coubee-kafka/manifests/02-kafka.yaml
-
-  # Wait for Kafka to be ready (only first pod for faster deployment)
-  echo "Waiting for Kafka to be ready..."
-  if ! kubectl wait --for=condition=ready pod/kafka-0 -n kafka --timeout=300s; then
-    echo "⚠️  Kafka pod failed to start within 300 seconds. Checking status..."
+  # Wait for Kafka to be ready
+  echo "Waiting for All-in-One Kafka to be ready..."
+  if ! kubectl wait --for=condition=ready pod/kafka-0 -n kafka --timeout=600s; then
+    echo "⚠️  All-in-One Kafka pod failed to start within 10 minutes. Checking status..."
     kubectl get pods -n kafka
     kubectl describe pod kafka-0 -n kafka
+    kubectl logs kafka-0 -n kafka --tail=20
     echo "❌ Kafka deployment failed. Please check the logs and try again."
     exit 1
   fi
 
-  # Deploy Kafka UI
-  echo "Deploying Kafka UI..."
-  kubectl apply -f coubee-kafka/manifests/03-kafka-ui.yaml
+  # Wait for Kafdrop to be ready
+  echo "Waiting for Kafdrop UI to be ready..."
+  if ! kubectl wait --for=condition=ready pod -l app=kafdrop -n kafka --timeout=300s; then
+    echo "⚠️  Kafdrop UI failed to start, but continuing..."
+  else
+    echo "✅ Kafdrop UI is ready!"
+  fi
 
-  echo "🟢 Kafka deployment completed."
-  echo "Internal Kafka bootstrap servers: kafka-headless.kafka.svc.cluster.local:9092"
+  echo "🟢 All-in-One Kafka deployment completed."
+  echo "Internal Kafka bootstrap servers: kafka-service.kafka.svc.cluster.local:9092"
 
-  # Create Kafka ExternalName Service immediately after Kafka deployment
+  # Create Kafka ExternalName Service for All-in-One
   echo ""
   echo "🔵 Creating Kafka ExternalName Service..."
   echo "================================================="
-  kubectl apply -f kafka-external-name-service.yml
+  cat > temp-external-service.yaml << 'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: coubee-external-kafka-service
+  namespace: default
+spec:
+  type: ExternalName
+  externalName: kafka-service.kafka.svc.cluster.local
+EOF
+  kubectl apply -f temp-external-service.yaml
+  rm temp-external-service.yaml
   echo "✅ Kafka ExternalName Service created."
 
   # Test Kafka connectivity
@@ -144,7 +147,7 @@ echo ""
 echo "To monitor the status of your pods, run:"
 echo "  kubectl get pods -w"
 echo "minikube service coubee-be-gateway-nodeport"
-echo "To access Kafka UI, run:"
-echo "  kubectl port-forward service/kafka-ui -n kafka 8080:8080"
-echo "  Then open http://localhost:8080 in your browser"
+echo "To access Kafka UI (Kafdrop), run:"
+echo "  kubectl port-forward service/kafdrop-service -n kafka 9000:9000"
+echo "  Then open http://localhost:9000 in your browser"
 echo "" 

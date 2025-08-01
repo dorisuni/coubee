@@ -9,4 +9,4 @@ spec:
   type: ExternalName
   # 실제 Kafka 서비스의 전체 주소 (FQDN)
   # 형식: <서비스이름>.<서비스가_있는_네임스페이스>.svc.cluster.local
-  externalName: kafka-headless.kafka.svc.cluster.local
+  externalName: kafka-service.kafka.svc.cluster.local

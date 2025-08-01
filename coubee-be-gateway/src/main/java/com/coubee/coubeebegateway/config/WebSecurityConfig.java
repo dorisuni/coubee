@@ -7,6 +7,7 @@ import com.coubee.coubeebegateway.security.jwt.JwtTokenValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -30,25 +31,28 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain applicationSecurity(HttpSecurity http) throws Exception {
         http
-                .cors(httpSecurityCorsConfigurer -> {
-                    httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource());
-                })
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
-                .securityMatcher("/**")
-                .sessionManagement(sessionManagementConfigurer ->
-                    sessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenValidator),
                         UsernamePasswordAuthenticationFilter.class
                 )
-                .exceptionHandling(exceptionHandling -> exceptionHandling
+                .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
                 )
+                // authorizeHttpRequests는 여기서 한 번만 호출되어야 합니다.
                 .authorizeHttpRequests(registry -> registry
+                        // --- 디버깅을 위해 모든 요청을 열고 싶을 때 ---
+                        // .anyRequest().permitAll()
+
+                        // --- 최종 보안 규칙 적용 ---
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/user/auth/**").permitAll()
+                        .requestMatchers("/api/order/payment/config").permitAll()
                         .requestMatchers("/api/store/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/store/su/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/product/admin/**").hasRole("ADMIN")
@@ -64,10 +68,16 @@ public class WebSecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowCredentials(true);
-        // 개발/테스트용 - 모든 Origin 허용 (운영환경에서는 특정 도메인만 허용해야 함)
-        config.setAllowedOriginPatterns(List.of("*"));
-        // config.setAllowedOrigins(List.of("http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:5500", "http://127.0.0.1:5500"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE","PATCH", "OPTIONS"));
+        // 와일드카드 '*' 대신 신뢰하는 출처를 명시적으로 등록합니다.
+        config.setAllowedOrigins(List.of(
+                "http://127.0.0.1:5500",
+                "http://localhost:5500",
+                "http://127.0.0.1:5501",
+                "http://localhost:5501",
+                "http://127.0.0.1:3000",
+                "http://localhost:3000"
+        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("*"));
 
