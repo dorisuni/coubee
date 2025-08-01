@@ -31,18 +31,8 @@ mkdir -p logs
 print_color $GREEN "Terminating any previously running Coubee applications..."
 pgrep -f "java.*coubee|java.*spring" | xargs kill -9 2>/dev/null || true
 
-# --- Step 1: Start Eureka Server ---
-print_color $GREEN "✅ 1. Starting Eureka Server (coubee-be-eureka)..."
-cd ./coubee-be-eureka
-./gradlew bootRun --args='--spring.profiles.active=local' > ../logs/eureka.log 2>&1 &
-EUREKA_PID=$!
-echo "   - Eureka Server started with PID: $EUREKA_PID"
-cd ..
-print_color $YELLOW "   - Waiting 15 seconds for Eureka Server to start."
-sleep 15
-
-# --- Step 2: Start User Service ---
-print_color $GREEN "✅ 2. Starting User Service (coubee-be-user)..."
+# --- Step 1: Start User Service ---
+print_color $GREEN "✅ 1. Starting User Service (coubee-be-user)..."
 cd ./coubee-be-user
 ./gradlew bootRun --args='--spring.profiles.active=local' > ../logs/user.log 2>&1 &
 USER_PID=$!
@@ -51,8 +41,8 @@ cd ..
 print_color $YELLOW "   - Waiting 10 seconds for User Service to start."
 sleep 10
 
-# --- Step 3: Start Order Service ---
-print_color $GREEN "✅ 3. Starting Order Service (coubee-be-order)..."
+# --- Step 2: Start Order Service ---
+print_color $GREEN "✅ 2. Starting Order Service (coubee-be-order)..."
 cd ./coubee-be-order
 ./gradlew bootRun --args='--spring.profiles.active=local' > ../logs/order.log 2>&1 &
 ORDER_PID=$!
@@ -61,8 +51,8 @@ cd ..
 print_color $YELLOW "   - Waiting 10 seconds for Order Service to start."
 sleep 10
 
-# --- Step 4: Start API Gateway ---
-print_color $GREEN "✅ 4. Starting API Gateway (coubee-be-gateway)..."
+# --- Step 3: Start API Gateway ---
+print_color $GREEN "✅ 3. Starting API Gateway (coubee-be-gateway)..."
 cd ./coubee-be-gateway
 ./gradlew bootRun --args='--spring.profiles.active=local' > ../logs/gateway.log 2>&1 &
 GATEWAY_PID=$!
@@ -70,12 +60,13 @@ echo "   - API Gateway started with PID: $GATEWAY_PID"
 cd ..
 
 # Save PIDs to file for easy termination later
-echo "$EUREKA_PID $USER_PID $ORDER_PID $GATEWAY_PID" > logs/service_pids.txt
+echo "$USER_PID $ORDER_PID $GATEWAY_PID" > logs/service_pids.txt
 
 # All services started
 print_color $GREEN "🚀 All services have been started in background!"
-print_color $CYAN "   Eureka Dashboard: http://localhost:8761"
 print_color $CYAN "   API Gateway: http://localhost:8080"
+print_color $CYAN "   User Service: http://localhost:8081"
+print_color $CYAN "   Order Service: http://localhost:8083"
 print_color $CYAN "   Order Service Swagger UI: http://localhost:8083/swagger-ui.html"
 echo ""
 print_color $YELLOW "   Note: Each service uses an in-memory H2 database, so data will be reset on restart."

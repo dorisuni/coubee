@@ -64,8 +64,9 @@ public class WebSecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowCredentials(true);
-//        config.setAllowedOrigins(List.of("*"));
+        // 개발/테스트용 - 모든 Origin 허용 (운영환경에서는 특정 도메인만 허용해야 함)
         config.setAllowedOriginPatterns(List.of("*"));
+        // config.setAllowedOrigins(List.of("http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:5500", "http://127.0.0.1:5500"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE","PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("*"));

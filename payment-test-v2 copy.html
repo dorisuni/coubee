@@ -144,7 +144,7 @@
     </div>
     
     <script>
-        const BASE_URL = 'http://localhost:8080';  // Gateway URL
+        const BASE_URL = 'http://127.0.0.1:38477';  // Gateway URL
         let currentOrder = null;
         let portoneConfig = null;
 
@@ -278,7 +278,17 @@
                 headers: getAuthHeaders()
             });
 
+            // 서버 응답 상세 로깅
+            console.log('🔍 fetchPaymentConfig 응답 상세:', {
+                status: response.status,
+                statusText: response.statusText,
+                headers: Object.fromEntries(response.headers.entries()),
+                url: response.url
+            });
+
             if (response.status === 403) {
+                const errorText = await response.text();
+                console.log('❌ 403 응답 본문:', errorText);
                 log('❌ 게이트웨이 인증 실패 (403 Forbidden). JWT 토큰이 만료되었거나 유효하지 않습니다.', true);
                 log('💡 해결 방법: 다시 로그인하여 새로운 토큰을 발급받으세요.', true);
                 throw new Error(`인증 실패 (${response.status})`);
@@ -335,13 +345,23 @@
                 headers: headers,
                 body: JSON.stringify(orderData)
             });
-            
+
+            // 서버 응답 상세 로깅
+            console.log('🔍 createOrder 응답 상세:', {
+                status: response.status,
+                statusText: response.statusText,
+                headers: Object.fromEntries(response.headers.entries()),
+                url: response.url
+            });
+
             if (!response.ok) {
                 const errorText = await response.text();
+                console.log(`❌ ${response.status} 응답 본문:`, errorText);
                 throw new Error(`주문 생성 실패 (${response.status}): ${errorText}`);
             }
-            
+
             currentOrder = await response.json();
+            console.log('✅ 주문 생성 응답 데이터:', currentOrder);
             log(`✅ 주문 생성 성공! 주문 ID: ${currentOrder.data.orderId}, 금액: ${currentOrder.data.amount}원`);
         }
 

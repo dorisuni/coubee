@@ -114,9 +114,6 @@ echo ""
 print_color $GREEN "✅ Cleaning Gradle cache and build files..."
 read -p "Do you want to clean Gradle build cache? (./gradlew clean for all services) (Y/N) " clean_gradle
 if [[ $clean_gradle == [Yy]* ]]; then
-  print_color $YELLOW "   Cleaning coubee-be-eureka..."
-  cd coubee-be-eureka && ./gradlew clean > /dev/null 2>&1 && cd ..
-  
   print_color $YELLOW "   Cleaning coubee-be-gateway..."
   cd coubee-be-gateway && ./gradlew clean > /dev/null 2>&1 && cd ..
   

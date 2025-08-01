@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  # 애플리케이션 설정(application.yml)에 있는 바로 그 이름
+  name: coubee-external-kafka-service
+  # user, order 서비스가 있는 네임스페이스
+  namespace: default
+spec:
+  type: ExternalName
+  # 실제 Kafka 서비스의 전체 주소 (FQDN)
+  # 형식: <서비스이름>.<서비스가_있는_네임스페이스>.svc.cluster.local
+  externalName: kafka-headless.kafka.svc.cluster.local
