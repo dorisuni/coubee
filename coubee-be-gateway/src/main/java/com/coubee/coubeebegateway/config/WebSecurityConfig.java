@@ -7,18 +7,14 @@ import com.coubee.coubeebegateway.security.jwt.JwtTokenValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
+
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -31,7 +27,8 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain applicationSecurity(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // CORS는 Spring Cloud Gateway에서 처리하므로 Spring Security에서는 비활성화
+                .cors(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -46,44 +43,23 @@ public class WebSecurityConfig {
                 )
                 // authorizeHttpRequests는 여기서 한 번만 호출되어야 합니다.
                 .authorizeHttpRequests(registry -> registry
-                        // --- 디버깅을 위해 모든 요청을 열고 싶을 때 ---
-                        // .anyRequest().permitAll()
+                        // --- 디버깅을 위해 모든 요청을 열어둠 ---
+                        .anyRequest().permitAll()
 
-                        // --- 최종 보안 규칙 적용 ---
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/user/auth/**").permitAll()
-                        .requestMatchers("/api/order/payment/config").permitAll()
-                        .requestMatchers("/api/store/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/store/su/**").hasRole("SUPER_ADMIN")
-                        .requestMatchers("/api/product/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/product/su/**").hasRole("SUPER_ADMIN")
-                        .anyRequest().authenticated()
+                        // --- 최종 보안 규칙 적용 (현재 비활성화) ---
+                        // .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // .requestMatchers("/api/user/auth/**").permitAll()
+                        // .requestMatchers("/api/order/payment/config").permitAll()
+                        // .requestMatchers("/api/store/admin/**").hasRole("ADMIN")
+                        // .requestMatchers("/api/store/su/**").hasRole("SUPER_ADMIN")
+                        // .requestMatchers("/api/product/admin/**").hasRole("ADMIN")
+                        // .requestMatchers("/api/product/su/**").hasRole("SUPER_ADMIN")
+                        // .anyRequest().authenticated()
                 );
 
         return http.build();
     }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-
-        config.setAllowCredentials(true);
-        // 와일드카드 '*' 대신 신뢰하는 출처를 명시적으로 등록합니다.
-        config.setAllowedOrigins(List.of(
-                "http://127.0.0.1:5500",
-                "http://localhost:5500",
-                "http://127.0.0.1:5501",
-                "http://localhost:5501",
-                "http://127.0.0.1:3000",
-                "http://localhost:3000"
-        ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("*"));
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-
-        return source;
-    }
+    // CORS 설정은 Spring Cloud Gateway에서 처리하므로 여기서는 제거
+    // Gateway의 globalcors 설정을 통해 CORS가 처리됩니다.
 }

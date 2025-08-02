@@ -14,6 +14,12 @@ public class AuthenticationHeaderFilterFunction {
         return request -> {
             ServerRequest.Builder requestBuilder = ServerRequest.from(request);
 
+            // OPTIONS 요청(프리플라이트)은 인증 헤더 추가 없이 바로 통과
+            if ("OPTIONS".equalsIgnoreCase(request.method().name())) {
+                log.debug("OPTIONS request detected, skipping authentication header addition for URI: {}", request.uri());
+                return requestBuilder.build();
+            }
+
             Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             if( principal instanceof UserPrincipal userPrincipal) {
                 requestBuilder.header("X-Auth-UserId", userPrincipal.getUserId());

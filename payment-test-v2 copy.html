@@ -100,6 +100,11 @@
         </div>
 
         <div class="step">
+            <h3>⚙️ 결제 설정 정보 조회</h3>
+            <button class="btn" onclick="testFetchPaymentConfig()" style="background: #17a2b8;">🔧 결제 설정 정보만 가져오기</button>
+        </div>
+
+        <div class="step">
             <h3>🛍️ 1단계: 주문 정보 입력</h3>
             <!-- 주문 정보 입력 필드들은 이전과 동일 -->
             <div class="form-group">
@@ -144,7 +149,7 @@
     </div>
     
     <script>
-        const BASE_URL = 'http://127.0.0.1:37571';  // Gateway URL
+        const BASE_URL = 'http://127.0.0.1:39425';  // Gateway URL
         let currentOrder = null;
         let portoneConfig = null;
 
@@ -189,8 +194,13 @@
                 log(`📝 회원가입을 시도합니다: ${username}`);
                 const response = await fetch(`${BASE_URL}/api/user/auth/signup`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password, nickName, role: 'USER' })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password, nickName, role: 'USER' }),
+                    mode: 'cors',
+                    credentials: 'omit'
                 });
 
                 if (!response.ok) {
@@ -214,8 +224,13 @@
                 log(`🔑 로그인을 시도합니다: ${username}`);
                 const response = await fetch(`${BASE_URL}/api/user/auth/login`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password }),
+                    mode: 'cors',
+                    credentials: 'omit'
                 });
 
                 if (!response.ok) {
@@ -248,7 +263,9 @@
             }
             return {
                 'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                // CORS 관련 헤더 명시적 추가
+                'Accept': 'application/json'
             };
         }
         
@@ -270,12 +287,35 @@
             return payMethodMap[paymentMethod] || paymentMethod;
         }
 
+        // 결제 설정 정보만 테스트하는 함수
+        async function testFetchPaymentConfig() {
+            try {
+                document.getElementById('result').textContent = '';
+                log('🔧 결제 설정 정보만 가져오는 테스트를 시작합니다...');
+
+                await fetchPaymentConfig();
+
+                if (portoneConfig) {
+                    log('✅ 결제 설정 정보 테스트 성공!');
+                    log(`📋 Store ID: ${portoneConfig.storeId}`);
+                    log(`📋 Channel Keys: ${JSON.stringify(portoneConfig.channelKeys, null, 2)}`);
+                } else {
+                    log('❌ 결제 설정 정보를 가져오지 못했습니다.', true);
+                }
+            } catch (error) {
+                log(`❌ 결제 설정 정보 테스트 실패: ${error.message}`, true);
+            }
+        }
+
         // 결제 설정 정보 가져오는 함수 (Fallback 로직 제거)
         async function fetchPaymentConfig() {
             log('⚙️ 백엔드에서 결제 설정 정보를 가져옵니다...');
-            
+
             const response = await fetch(`${BASE_URL}/api/order/payment/config`, {
-                headers: getAuthHeaders()
+                method: 'GET',
+                // headers: getAuthHeaders(),
+                // mode: 'cors',
+                // credentials: 'omit'  // 토큰을 헤더로 보내므로 credentials는 omit
             });
 
             // 서버 응답 상세 로깅
@@ -293,7 +333,7 @@
                 log('💡 해결 방법: 다시 로그인하여 새로운 토큰을 발급받으세요.', true);
                 throw new Error(`인증 실패 (${response.status})`);
             }
-            
+
             if (!response.ok) {
                 const errorText = await response.text();
                 log(`❌ 설정 정보 로딩 실패 (${response.status}): ${errorText}`, true);
@@ -343,7 +383,9 @@
             const response = await fetch(`${BASE_URL}/api/order/orders`, {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify(orderData)
+                body: JSON.stringify(orderData),
+                mode: 'cors',
+                credentials: 'omit'  // 토큰을 헤더로 보내므로 credentials는 omit
             });
 
             // 서버 응답 상세 로깅

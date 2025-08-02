@@ -131,7 +131,10 @@ for SERVICE_DIR in "${SERVICES[@]}"; do
     echo "  - ❗️ (3/3) Warning: Kubernetes config directory not found at '$KUBE_DIR'. Skipping deployment."
   else
     echo "  - (3/3) Applying Kubernetes resources... (kubectl apply -f .kube/)"
+
+    # 모든 서비스에 대해 모든 리소스 적용 (ConfigMap 포함)
     kubectl apply -f "$KUBE_DIR/"
+
     echo "  - (3/3) Kubernetes resources applied."
   fi
 

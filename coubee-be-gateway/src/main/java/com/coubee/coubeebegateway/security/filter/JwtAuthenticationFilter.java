@@ -20,6 +20,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        // OPTIONS 요청(프리플라이트)은 JWT 검증 없이 바로 통과
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            log.debug("OPTIONS request detected, skipping JWT authentication for URI: {}", request.getRequestURI());
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String jwtToken = jwtTokenValidator.getToken(request);
 
         if (jwtToken != null) {
