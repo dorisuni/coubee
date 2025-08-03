@@ -7,6 +7,7 @@ import com.coubee.coubeebegateway.security.jwt.JwtTokenValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -43,18 +44,19 @@ public class WebSecurityConfig {
                 )
                 // authorizeHttpRequests는 여기서 한 번만 호출되어야 합니다.
                 .authorizeHttpRequests(registry -> registry
-                        // --- 디버깅을 위해 모든 요청을 열어둠 ---
-                        .anyRequest().permitAll()
-
-                        // --- 최종 보안 규칙 적용 (현재 비활성화) ---
-                        // .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // .requestMatchers("/api/user/auth/**").permitAll()
-                        // .requestMatchers("/api/order/payment/config").permitAll()
-                        // .requestMatchers("/api/store/admin/**").hasRole("ADMIN")
-                        // .requestMatchers("/api/store/su/**").hasRole("SUPER_ADMIN")
-                        // .requestMatchers("/api/product/admin/**").hasRole("ADMIN")
-                        // .requestMatchers("/api/product/su/**").hasRole("SUPER_ADMIN")
-                        // .anyRequest().authenticated()
+                        // OPTIONS 요청 허용 (CORS preflight)
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // 인증 없이 접근 가능한 엔드포인트
+                        .requestMatchers("/api/user/auth/**").permitAll()
+                        .requestMatchers("/api/order/payment/config").permitAll()
+                        .requestMatchers("/api/order/webhook/**").permitAll()
+                        // 관리자 권한이 필요한 엔드포인트
+                        .requestMatchers("/api/store/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/store/su/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/product/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/product/su/**").hasRole("SUPER_ADMIN")
+                        // 나머지 모든 요청은 인증 필요
+                        .anyRequest().authenticated()
                 );
 
         return http.build();

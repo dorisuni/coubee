@@ -19,8 +19,15 @@ fi
 
 # --- Configuration ---
 # List of services to delete. Reverse dependency order is recommended.
-# Gateway is deleted first.
+# Gateway is deleted first. Only include implemented services.
 SERVICES=(
+  "coubee-be-gateway"
+  "coubee-be-order"
+  "coubee-be-user"
+)
+
+# Also try to clean up any remaining unimplemented services
+ALL_POSSIBLE_SERVICES=(
   "coubee-be-gateway"
   "coubee-be-report"
   "coubee-be-order"
@@ -33,7 +40,8 @@ ROOT_DIR=$(pwd)
 
 echo "🔥 Starting deletion of all Coubee services from Kubernetes..."
 
-for SERVICE_DIR in "${SERVICES[@]}"; do
+# First, try to delete all possible services (including unimplemented ones)
+for SERVICE_DIR in "${ALL_POSSIBLE_SERVICES[@]}"; do
   echo ""
   echo "================================================="
   echo "🗑️ Deleting service: $SERVICE_DIR"

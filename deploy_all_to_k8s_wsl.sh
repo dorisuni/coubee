@@ -80,18 +80,33 @@ echo ""
 
 # --- Configuration ---
 # List of services to deploy. The order is important!
+# Only deploy services that actually exist and have implementations
 SERVICES=(
   "coubee-be-user"
-  "coubee-be-store"
   "coubee-be-order"
-  "coubee-be-report"
   "coubee-be-gateway"
+)
+
+# Services that exist but are not implemented yet
+UNIMPLEMENTED_SERVICES=(
+  "coubee-be-store"
+  "coubee-be-report"
 )
 
 # Project root directory
 ROOT_DIR=$(pwd)
 
 echo "🚀 Starting deployment of all Coubee services to Kubernetes..."
+
+# Warn about unimplemented services
+if [ ${#UNIMPLEMENTED_SERVICES[@]} -gt 0 ]; then
+  echo ""
+  echo "⚠️  The following services are not implemented yet and will be skipped:"
+  for service in "${UNIMPLEMENTED_SERVICES[@]}"; do
+    echo "    - $service"
+  done
+  echo ""
+fi
 
 for SERVICE_DIR in "${SERVICES[@]}"; do
   echo ""
@@ -114,15 +129,20 @@ for SERVICE_DIR in "${SERVICES[@]}"; do
   fi
 
   # 2. Build the Docker image
-  IMAGE_NAME="coubee/$SERVICE_DIR:0.0.1"
+  # Use the same image name as referenced in Kubernetes deployments
+  IMAGE_NAME="mingyoolee/$SERVICE_DIR:0.0.1"
   DOCKERFILE_PATH=".docker/Dockerfile"
-  
+
   if [ ! -f "$DOCKERFILE_PATH" ]; then
     echo "  - ❗️ (2/3) Warning: Dockerfile not found at '$DOCKERFILE_PATH'. Skipping Docker image build."
   else
     echo "  - (2/3) Starting Docker image build... (Image: $IMAGE_NAME)"
     docker build . -t "$IMAGE_NAME" -f "$DOCKERFILE_PATH"
     echo "  - (2/3) Docker image build finished."
+
+    # Also tag with the local name for consistency
+    docker tag "$IMAGE_NAME" "coubee/$SERVICE_DIR:0.0.1"
+    echo "  - (2/3) Tagged image with local name: coubee/$SERVICE_DIR:0.0.1"
   fi
 
   # 3. Apply Kubernetes resources
@@ -132,10 +152,33 @@ for SERVICE_DIR in "${SERVICES[@]}"; do
   else
     echo "  - (3/3) Applying Kubernetes resources... (kubectl apply -f .kube/)"
 
-    # 모든 서비스에 대해 모든 리소스 적용 (ConfigMap 포함)
-    kubectl apply -f "$KUBE_DIR/"
+    # Apply resources in order: ConfigMaps and Secrets first, then Deployments and Services
+    if ls "$KUBE_DIR"/*config*.yml 1> /dev/null 2>&1; then
+      kubectl apply -f "$KUBE_DIR"/*config*.yml
+    fi
+    if ls "$KUBE_DIR"/*secret*.yml 1> /dev/null 2>&1; then
+      kubectl apply -f "$KUBE_DIR"/*secret*.yml
+    fi
+    if ls "$KUBE_DIR"/*service*.yml 1> /dev/null 2>&1; then
+      kubectl apply -f "$KUBE_DIR"/*service*.yml
+    fi
+    if ls "$KUBE_DIR"/*deploy*.yml 1> /dev/null 2>&1; then
+      kubectl apply -f "$KUBE_DIR"/*deploy*.yml
+    fi
+    if ls "$KUBE_DIR"/*nodeport*.yml 1> /dev/null 2>&1; then
+      kubectl apply -f "$KUBE_DIR"/*nodeport*.yml
+    fi
 
     echo "  - (3/3) Kubernetes resources applied."
+
+    # Wait for deployment to be ready (with timeout)
+    DEPLOYMENT_NAME="$SERVICE_DIR-deployment"
+    echo "  - (3/3) Waiting for deployment $DEPLOYMENT_NAME to be ready..."
+    if kubectl wait --for=condition=available deployment/$DEPLOYMENT_NAME --timeout=300s 2>/dev/null; then
+      echo "  - ✅ Deployment $DEPLOYMENT_NAME is ready!"
+    else
+      echo "  - ⚠️  Deployment $DEPLOYMENT_NAME is taking longer than expected. Check status manually."
+    fi
   fi
 
   # Return to the root directory for the next loop
@@ -144,13 +187,33 @@ done
 
 echo ""
 echo "================================================="
-echo "✅ All services have been deployed."
+echo "✅ All implemented services have been deployed."
 echo "================================================="
 echo ""
-echo "To monitor the status of your pods, run:"
+echo "📊 Deployment Summary:"
+echo "  ✅ Deployed: ${SERVICES[*]}"
+if [ ${#UNIMPLEMENTED_SERVICES[@]} -gt 0 ]; then
+  echo "  ⏸️  Skipped: ${UNIMPLEMENTED_SERVICES[*]} (not implemented)"
+fi
+echo ""
+echo "🔍 To monitor the status of your pods, run:"
 echo "  kubectl get pods -w"
-echo "minikube service coubee-be-gateway-nodeport"
-echo "To access Kafka UI (Kafdrop), run:"
+echo ""
+echo "🌐 To access the gateway service, run:"
+echo "  minikube service coubee-be-gateway-nodeport"
+echo "  Or check the NodePort: kubectl get svc coubee-be-gateway-nodeport"
+echo ""
+echo "📊 To access Kafka UI (Kafdrop), run:"
 echo "  kubectl port-forward service/kafdrop-service -n kafka 9000:9000"
 echo "  Then open http://localhost:9000 in your browser"
-echo "" 
+echo ""
+echo "🔧 To check deployment status:"
+echo "  kubectl get deployments"
+echo "  kubectl get pods"
+echo "  kubectl get services"
+echo ""
+echo "📋 To view logs for a specific service:"
+echo "  kubectl logs -f deployment/coubee-be-gateway-deployment"
+echo "  kubectl logs -f deployment/coubee-be-user-deployment"
+echo "  kubectl logs -f deployment/coubee-be-order-deployment"
+echo ""
