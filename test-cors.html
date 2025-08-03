@@ -148,6 +148,9 @@
                 <button class="btn public" onclick="testGetOrder()">
                     <span class="method-get">GET</span> Get Order Details
                 </button>
+                <button class="btn public" onclick="testGetOrderStatus()">
+                    <span class="method-get">GET</span> Get Order Status
+                </button>
                 <button class="btn auth" onclick="testGetUserOrders()">
                     <span class="method-get">GET</span> Get User Orders
                 </button>
@@ -159,6 +162,9 @@
                 </button>
                 <button class="btn admin" onclick="testUpdateOrderStatus()">
                     <span class="method-patch">PATCH</span> Update Order Status
+                </button>
+                <button class="btn admin" onclick="testUpdateOrderStatusWithReason()">
+                    <span class="method-patch">PATCH</span> Update Status (with reason)
                 </button>
             </div>
         </div>
@@ -393,6 +399,11 @@
             await testEndpoint('GET', `/api/order/orders/${orderId}`);
         }
 
+        async function testGetOrderStatus() {
+            const orderId = document.getElementById('testOrderId').value;
+            await testEndpoint('GET', `/api/order/orders/status/${orderId}`);
+        }
+
         async function testGetUserOrders() {
             const userId = document.getElementById('testUserId').value;
             await testEndpoint('GET', `/api/order/users/${userId}/orders?page=0&size=10`);
@@ -415,8 +426,17 @@
         async function testUpdateOrderStatus() {
             const orderId = document.getElementById('testOrderId').value;
             const statusData = {
-                status: "COMPLETED",
-                reason: "Test status update"
+                status: "PREPARING"
+            };
+
+            await testEndpoint('PATCH', `/api/order/orders/${orderId}`, statusData);
+        }
+
+        async function testUpdateOrderStatusWithReason() {
+            const orderId = document.getElementById('testOrderId').value;
+            const statusData = {
+                status: "PREPARED",
+                reason: "Food preparation completed, ready for pickup"
             };
 
             await testEndpoint('PATCH', `/api/order/orders/${orderId}`, statusData);
