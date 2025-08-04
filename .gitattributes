@@ -1,0 +1,7 @@
+# These files are text and should be normalized (convert CRLF to LF)
+* text=auto
+
+# These files are scripts and should always have LF line endings
+*.sh eol=lf
+gradlew eol=lf
+gradlew.bat eol=crlf

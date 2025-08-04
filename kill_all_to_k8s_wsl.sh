@@ -7,15 +7,15 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
-# Check if running in WSL
-if [[ ! $(uname -r) =~ Microsoft ]]; then
-  echo "⚠️  This script is designed to run in WSL (Windows Subsystem for Linux)."
-  echo "    If you're running in a different environment, use kill_all_to_k8s.sh instead."
-  read -p "Continue anyway? (y/n): " confirm
-  if [[ ! $confirm =~ ^[Yy]$ ]]; then
-    exit 1
-  fi
-fi
+# Check if running in WSL - Bypassed
+# if [[ ! $(uname -r) =~ Microsoft ]]; then
+#   echo "⚠️  This script is designed to run in WSL (Windows Subsystem for Linux)."
+#   echo "    If you're running in a different environment, use kill_all_to_k8s.sh instead."
+#   read -p "Continue anyway? (y/n): " confirm
+#   if [[ ! $confirm =~ ^[Yy]$ ]]; then
+#     exit 1
+#   fi
+# fi
 
 # --- Configuration ---
 # List of services to delete. Reverse dependency order is recommended.
@@ -92,31 +92,9 @@ echo "🔥 Deleting Kafka resources from Kubernetes..."
 
 # Check if kafka namespace exists
 if kubectl get namespace kafka &> /dev/null; then
-  # Ask for confirmation before deleting Kafka
-  read -p "⚠️ Do you want to delete Kafka resources? This will delete all Kafka data. (y/n): " confirm
-  if [[ $confirm =~ ^[Yy] ]]; then
-    echo "Deleting Kafka UI..."
-    kubectl delete -f coubee-kafka/manifests/03-kafka-ui.yaml --ignore-not-found=true
-    
-    echo "Deleting Kafka..."
-    kubectl delete -f coubee-kafka/manifests/02-kafka.yaml --ignore-not-found=true
-    
-    echo "Deleting Zookeeper..."
-    kubectl delete -f coubee-kafka/manifests/01-zookeeper.yaml --ignore-not-found=true
-
-    echo "Deleting Kafka PVCs..."
-    kubectl delete pvc -l app=kafka -n kafka --ignore-not-found=true
-
-    echo "Deleting Zookeeper PVCs..."
-    kubectl delete pvc -l app=zookeeper -n kafka --ignore-not-found=true
-    
-    echo "Deleting Kafka namespace..."
-    kubectl delete -f coubee-kafka/manifests/00-namespace.yaml --ignore-not-found=true
-    
-    echo "✅ Kafka resources have been deleted."
-  else
-    echo "Skipping Kafka deletion."
-  fi
+  echo "Deleting All-in-One Kafka resources..."
+  kubectl delete -f simple-kafka-allinone.yaml --ignore-not-found=true
+  echo "✅ Kafka resources have been deleted."
 else
   echo "Kafka namespace not found. Nothing to delete."
 fi

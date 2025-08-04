@@ -14,6 +14,20 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
+# --- Pre-flight Checks ---
+
+# 1. Check if Minikube is running
+if ! minikube status &> /dev/null; then
+  echo "❌ Minikube is not running. Please start it with 'minikube start' before running this script."
+  exit 1
+fi
+
+# 2. Check if Docker is running
+if ! docker info &> /dev/null; then
+  echo "❌ Docker is not running. Please start the Docker daemon before running this script."
+  exit 1
+fi
+
 # Parse command line arguments
 DEPLOYMENT_MODE="parallel"  # Default to parallel mode
 
@@ -49,15 +63,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Check if running in WSL
-if [[ ! $(uname -r) =~ Microsoft ]]; then
-  echo "⚠️  This script is designed to run in WSL (Windows Subsystem for Linux)."
-  echo "    If you're running in a different environment, use deploy_all_to_k8s.sh instead."
-  read -p "Continue anyway? (y/n): " confirm
-  if [[ ! $confirm =~ ^[Yy]$ ]]; then
-    exit 1
-  fi
-fi
+# Check if running in WSL - Bypassed
+# if [[ ! $(uname -r) =~ Microsoft ]]; then
+#   echo "⚠️  This script is designed to run in WSL (Windows Subsystem for Linux)."
+#   echo "    If you're running in a different environment, use deploy_all_to_k8s.sh instead."
+#   read -p "Continue anyway? (y/n): " confirm
+#   if [[ ! $confirm =~ ^[Yy]$ ]]; then
+#     exit 1
+#   fi
+# fi
 
 # --- Deploy Kafka to Kubernetes Cluster ---
 echo "🔵 Deploying Kafka to Kubernetes cluster..."
@@ -120,6 +134,14 @@ fi
 echo "================================================="
 echo ""
 
+# --- Apply RBAC for Service Discovery ---
+echo "🔵 Applying RBAC rules for Spring Cloud Kubernetes service discovery..."
+echo "================================================="
+kubectl apply -f gateway-rbac.yaml
+echo "✅ RBAC rules applied."
+echo "================================================="
+echo ""
+
 # --- Configuration ---
 # List of services to deploy. The order is important!
 # Only deploy services that actually exist and have implementations
@@ -164,15 +186,12 @@ deploy_service() {
   local SERVICE_DIR=$1
   local SERVICE_NUM=$2
   local TOTAL_SERVICES=$3
-
   echo ""
   echo "================================================="
   echo "📦 Deploying service ($SERVICE_NUM/$TOTAL_SERVICES): $SERVICE_DIR"
   echo "================================================="
-
   # Navigate to the service directory
   cd "$ROOT_DIR/$SERVICE_DIR"
-
   # 1. Build the project with Gradle (skipping tests to speed up the process)
   echo "  - (1/3) Starting Gradle build... (./gradlew build -x test)"
   if [ -f "./gradlew" ]; then
@@ -183,31 +202,29 @@ deploy_service() {
   else
     echo "  - ❗️ (1/3) Warning: gradlew script not found. Skipping Gradle build."
   fi
-
-  # 2. Build the Docker image
+  # 2. Build the Docker image inside Minikube's Docker daemon
   # Use the same image name as referenced in Kubernetes deployments
   IMAGE_NAME="mingyoolee/$SERVICE_DIR:0.0.1"
   DOCKERFILE_PATH=".docker/Dockerfile"
-
   if [ ! -f "$DOCKERFILE_PATH" ]; then
     echo "  - ❗️ (2/3) Warning: Dockerfile not found at '$DOCKERFILE_PATH'. Skipping Docker image build."
   else
+    echo "  - (2/3) Configuring Docker to build inside Minikube..."
+    # This command configures the shell to use the Docker daemon inside Minikube
+    eval $(minikube -p minikube docker-env)
     echo "  - (2/3) Starting Docker image build... (Image: $IMAGE_NAME)"
     docker build . -t "$IMAGE_NAME" -f "$DOCKERFILE_PATH"
     echo "  - (2/3) Docker image build finished."
-
     # Also tag with the local name for consistency
     docker tag "$IMAGE_NAME" "coubee/$SERVICE_DIR:0.0.1"
     echo "  - (2/3) Tagged image with local name: coubee/$SERVICE_DIR:0.0.1"
   fi
-
   # 3. Apply Kubernetes resources
   KUBE_DIR=".kube"
   if [ ! -d "$KUBE_DIR" ]; then
     echo "  - ❗️ (3/3) Warning: Kubernetes config directory not found at '$KUBE_DIR'. Skipping deployment."
   else
     echo "  - (3/3) Applying Kubernetes resources... (kubectl apply -f .kube/)"
-
     # Apply resources in order: ConfigMaps and Secrets first, then Deployments and Services
     if ls "$KUBE_DIR"/*config*.yml 1> /dev/null 2>&1; then
       kubectl apply -f "$KUBE_DIR"/*config*.yml
@@ -224,16 +241,12 @@ deploy_service() {
     if ls "$KUBE_DIR"/*nodeport*.yml 1> /dev/null 2>&1; then
       kubectl apply -f "$KUBE_DIR"/*nodeport*.yml
     fi
-
     echo "  - (3/3) Kubernetes resources applied for $SERVICE_DIR."
-
     # Add to deployed services list
     DEPLOYED_SERVICES+=("$SERVICE_DIR")
   fi
-
   # Return to the root directory
   cd "$ROOT_DIR"
-
   echo "✅ Service $SERVICE_DIR deployment initiated."
 }
 
