@@ -3,9 +3,51 @@
 # --- deploy_all_to_k8s_wsl.sh ---
 # This script builds and deploys all Coubee microservices to a Kubernetes environment in WSL.
 # WSL 환경에서 Kubernetes 클러스터에 모든 서비스를 배포합니다.
+#
+# Usage:
+#   ./deploy_all_to_k8s_wsl.sh [--sequential] [--parallel]
+#
+#   --parallel   : Deploy all services simultaneously (default, faster)
+#   --sequential : Deploy services one by one, waiting for each to be ready
+#   --help       : Show this help message
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
+
+# Parse command line arguments
+DEPLOYMENT_MODE="parallel"  # Default to parallel mode
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --sequential)
+      DEPLOYMENT_MODE="sequential"
+      shift
+      ;;
+    --parallel)
+      DEPLOYMENT_MODE="parallel"
+      shift
+      ;;
+    --help|-h)
+      echo "Usage: $0 [--sequential] [--parallel]"
+      echo ""
+      echo "Options:"
+      echo "  --parallel   : Deploy all services simultaneously (default, faster)"
+      echo "  --sequential : Deploy services one by one, waiting for each to be ready"
+      echo "  --help       : Show this help message"
+      echo ""
+      echo "Examples:"
+      echo "  $0                    # Deploy in parallel mode (default)"
+      echo "  $0 --parallel         # Deploy in parallel mode (explicit)"
+      echo "  $0 --sequential       # Deploy in sequential mode"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Use --help for usage information."
+      exit 1
+      ;;
+  esac
+done
 
 # Check if running in WSL
 if [[ ! $(uname -r) =~ Microsoft ]]; then
@@ -96,7 +138,16 @@ UNIMPLEMENTED_SERVICES=(
 # Project root directory
 ROOT_DIR=$(pwd)
 
+# Array to track deployed services for status checking
+DEPLOYED_SERVICES=()
+
 echo "🚀 Starting deployment of all Coubee services to Kubernetes..."
+echo "📋 Deployment mode: $DEPLOYMENT_MODE"
+if [ "$DEPLOYMENT_MODE" = "parallel" ]; then
+  echo "   ⚡ Parallel mode: All services will be deployed simultaneously for faster deployment"
+else
+  echo "   🔄 Sequential mode: Services will be deployed one by one, waiting for each to be ready"
+fi
 
 # Warn about unimplemented services
 if [ ${#UNIMPLEMENTED_SERVICES[@]} -gt 0 ]; then
@@ -108,10 +159,15 @@ if [ ${#UNIMPLEMENTED_SERVICES[@]} -gt 0 ]; then
   echo ""
 fi
 
-for SERVICE_DIR in "${SERVICES[@]}"; do
+# Function to deploy a single service
+deploy_service() {
+  local SERVICE_DIR=$1
+  local SERVICE_NUM=$2
+  local TOTAL_SERVICES=$3
+
   echo ""
   echo "================================================="
-  echo "📦 Deploying service: $SERVICE_DIR"
+  echo "📦 Deploying service ($SERVICE_NUM/$TOTAL_SERVICES): $SERVICE_DIR"
   echo "================================================="
 
   # Navigate to the service directory
@@ -169,32 +225,102 @@ for SERVICE_DIR in "${SERVICES[@]}"; do
       kubectl apply -f "$KUBE_DIR"/*nodeport*.yml
     fi
 
-    echo "  - (3/3) Kubernetes resources applied."
+    echo "  - (3/3) Kubernetes resources applied for $SERVICE_DIR."
+
+    # Add to deployed services list
+    DEPLOYED_SERVICES+=("$SERVICE_DIR")
+  fi
+
+  # Return to the root directory
+  cd "$ROOT_DIR"
+
+  echo "✅ Service $SERVICE_DIR deployment initiated."
+}
+
+# Deploy services based on mode
+if [ "$DEPLOYMENT_MODE" = "parallel" ]; then
+  echo ""
+  echo "� Deploying all services in parallel mode..."
+  echo "This will start all deployments simultaneously for faster overall deployment time."
+  echo ""
+
+  # Deploy all services without waiting
+  SERVICE_COUNT=1
+  TOTAL_SERVICES=${#SERVICES[@]}
+
+  for SERVICE_DIR in "${SERVICES[@]}"; do
+    deploy_service "$SERVICE_DIR" "$SERVICE_COUNT" "$TOTAL_SERVICES"
+    SERVICE_COUNT=$((SERVICE_COUNT + 1))
+  done
+
+else
+  echo ""
+  echo "🚀 Deploying all services in sequential mode..."
+  echo "This will wait for each service to be ready before deploying the next one."
+  echo ""
+
+  # Deploy services one by one and wait for each
+  SERVICE_COUNT=1
+  TOTAL_SERVICES=${#SERVICES[@]}
+
+  for SERVICE_DIR in "${SERVICES[@]}"; do
+    deploy_service "$SERVICE_DIR" "$SERVICE_COUNT" "$TOTAL_SERVICES"
 
     # Wait for deployment to be ready (with timeout)
     DEPLOYMENT_NAME="$SERVICE_DIR-deployment"
-    echo "  - (3/3) Waiting for deployment $DEPLOYMENT_NAME to be ready..."
+    echo "  - Waiting for deployment $DEPLOYMENT_NAME to be ready..."
     if kubectl wait --for=condition=available deployment/$DEPLOYMENT_NAME --timeout=300s 2>/dev/null; then
       echo "  - ✅ Deployment $DEPLOYMENT_NAME is ready!"
     else
       echo "  - ⚠️  Deployment $DEPLOYMENT_NAME is taking longer than expected. Check status manually."
     fi
-  fi
 
-  # Return to the root directory for the next loop
-  cd "$ROOT_DIR"
-done
+    SERVICE_COUNT=$((SERVICE_COUNT + 1))
+  done
+fi
 
 echo ""
 echo "================================================="
 echo "✅ All implemented services have been deployed."
 echo "================================================="
+
+# Optional status check for parallel deployments
+if [ "$DEPLOYMENT_MODE" = "parallel" ] && [ ${#DEPLOYED_SERVICES[@]} -gt 0 ]; then
+  echo ""
+  echo "🔍 Checking deployment status (parallel mode)..."
+  echo "================================================="
+
+  for SERVICE_DIR in "${DEPLOYED_SERVICES[@]}"; do
+    DEPLOYMENT_NAME="$SERVICE_DIR-deployment"
+    echo "📋 Checking $DEPLOYMENT_NAME..."
+
+    # Quick status check without waiting
+    if kubectl get deployment "$DEPLOYMENT_NAME" &>/dev/null; then
+      READY=$(kubectl get deployment "$DEPLOYMENT_NAME" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+      DESIRED=$(kubectl get deployment "$DEPLOYMENT_NAME" -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "1")
+
+      if [ "$READY" = "$DESIRED" ] && [ "$READY" != "0" ]; then
+        echo "  ✅ $SERVICE_DIR: Ready ($READY/$DESIRED replicas)"
+      else
+        echo "  🔄 $SERVICE_DIR: Starting... ($READY/$DESIRED replicas)"
+      fi
+    else
+      echo "  ❌ $SERVICE_DIR: Deployment not found"
+    fi
+  done
+
+  echo ""
+  echo "� Note: Services are starting in parallel. Some may still be initializing."
+  echo "   Use 'kubectl get pods -w' to monitor real-time status."
+fi
+
 echo ""
-echo "📊 Deployment Summary:"
+echo "�📊 Deployment Summary:"
 echo "  ✅ Deployed: ${SERVICES[*]}"
 if [ ${#UNIMPLEMENTED_SERVICES[@]} -gt 0 ]; then
   echo "  ⏸️  Skipped: ${UNIMPLEMENTED_SERVICES[*]} (not implemented)"
 fi
+echo "  🚀 Mode: $DEPLOYMENT_MODE"
 echo ""
 echo "🔍 To monitor the status of your pods, run:"
 echo "  kubectl get pods -w"
