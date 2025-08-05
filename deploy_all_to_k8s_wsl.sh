@@ -193,11 +193,11 @@ deploy_service() {
   # Navigate to the service directory
   cd "$ROOT_DIR/$SERVICE_DIR"
   # 1. Build the project with Gradle (skipping tests to speed up the process)
-  echo "  - (1/3) Starting Gradle build... (./gradlew build -x test)"
+  echo "  - (1/3) Starting Gradle build... (./gradlew clean build -x test)"
   if [ -f "./gradlew" ]; then
     # Make gradlew executable in case it lost permissions
     chmod +x ./gradlew
-    ./gradlew build -x test
+    ./gradlew clean build -x test
     echo "  - (1/3) Gradle build finished."
   else
     echo "  - ❗️ (1/3) Warning: gradlew script not found. Skipping Gradle build."

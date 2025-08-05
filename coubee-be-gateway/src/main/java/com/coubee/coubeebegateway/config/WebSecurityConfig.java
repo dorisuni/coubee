@@ -46,6 +46,7 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(registry -> registry
                         // OPTIONS 요청 허용 (CORS preflight)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
                         // 인증 없이 접근 가능한 엔드포인트
                         .requestMatchers("/api/user/auth/**").permitAll()
                         .requestMatchers("/api/order/payment/config").permitAll()

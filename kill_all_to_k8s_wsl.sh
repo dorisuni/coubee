@@ -79,24 +79,27 @@ echo "To confirm that all pods are terminated, run:"
 echo "  kubectl get pods"
 echo ""
 
-# --- Delete Kafka ExternalName Service ---
-echo "================================================="
-echo "🔥 Deleting Kafka ExternalName Service..."
-kubectl delete service coubee-external-kafka-service -n default --ignore-not-found=true
-echo "✅ Kafka ExternalName Service deleted."
-echo "================================================="
+# --- Delete Kafka Resources (Optional) ---
 echo ""
-
 echo "================================================="
-echo "🔥 Deleting Kafka resources from Kubernetes..."
-
-# Check if kafka namespace exists
-if kubectl get namespace kafka &> /dev/null; then
-  echo "Deleting All-in-One Kafka resources..."
-  kubectl delete -f simple-kafka-allinone.yaml --ignore-not-found=true
-  echo "✅ Kafka resources have been deleted."
+echo "🔥 Kafka Deletion"
+echo "================================================="
+read -p "Do you want to delete Kafka resources as well? (y/n): " confirm_kafka
+if [[ $confirm_kafka =~ ^[Yy]$ ]]; then
+  echo "🔥 Deleting Kafka ExternalName Service..."
+  kubectl delete service coubee-external-kafka-service -n default --ignore-not-found=true
+  echo "✅ Kafka ExternalName Service deleted."
+  echo ""
+  echo "🔥 Deleting Kafka resources from Kubernetes..."
+  if kubectl get namespace kafka &> /dev/null; then
+    echo "Deleting All-in-One Kafka resources..."
+    kubectl delete -f simple-kafka-allinone.yaml --ignore-not-found=true
+    echo "✅ Kafka resources have been deleted."
+  else
+    echo "Kafka namespace not found. Nothing to delete."
+  fi
 else
-  echo "Kafka namespace not found. Nothing to delete."
+  echo "Skipping Kafka deletion."
 fi
 echo "================================================="
 echo "" 

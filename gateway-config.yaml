@@ -11,7 +11,7 @@ data:
     \             predicates:\n                - Path=/api/product/**\n              filters:\n
     \               - addAuthenticationHeader\n            - id: coubee-be-order\n
     \             uri: http://coubee-be-order-service:8080\n              predicates:\n
-    \               - Path=/api/order/**\n              filters:\n                -
+    \               - Path=/api/orders/**\n              filters:\n                -
     addAuthenticationHeader\n"
 kind: ConfigMap
 metadata:
