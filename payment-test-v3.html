@@ -513,12 +513,18 @@ portone:
                 document.getElementById('result').textContent = '';
                 log('🚀 PortOne V2 결제 플로우를 시작합니다...');
                 
+                // 1단계: 결제 설정 정보 로드
                 await fetchPaymentConfig();
+                
+                // 2단계: 백엔드에서 주문 생성
                 await createOrder();
                 
+                // 3단계: 백엔드에 결제 준비 요청
+                await preparePayment();
+
                 if (currentOrder) {
                     document.getElementById('paymentBtn').disabled = false;
-                    log('✅ 주문 생성 완료! 이제 "PortOne V2 결제 진행" 버튼을 클릭하세요.');
+                    log('✅ 주문 및 결제 준비 완료! 이제 "PortOne V2 결제 진행" 버튼을 클릭하세요.');
                 }
             } catch (error) {
                 // 에러 메시지는 각 함수에서 이미 로그에 남겼으므로 여기서는 추가로 남기지 않음
@@ -556,6 +562,40 @@ portone:
                 log(`✅ 주문 생성 성공! 주문 ID: ${currentOrder.data.orderId}, 금액: ${currentOrder.data.amount}원`);
             } catch (error) {
                 log(`❌ 주문 생성 오류: ${error.message}`, true);
+                throw error;
+            }
+        }
+
+        async function preparePayment() {
+            if (!currentOrder) {
+                log('❌ 주문 정보가 없습니다. 먼저 주문을 생성하세요.', true);
+                throw new Error('주문 정보 없음');
+            }
+
+            log('💳 결제 준비 중...');
+
+            try {
+                const prepareData = {
+                    storeId: parseInt(document.getElementById('storeId').value)
+                };
+
+                const headers = getAuthHeaders();
+                const response = await fetch(`${BASE_URL}/api/order/payment/orders/${currentOrder.data.orderId}/prepare`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(prepareData)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`결제 준비 실패 (${response.status}): ${errorText}`);
+                }
+
+                const result = await response.json();
+                log(`✅ 결제 준비 성공! Merchant UID: ${result.data.merchantUid}`);
+
+            } catch (error) {
+                log(`❌ 결제 준비 오류: ${error.message}`, true);
                 throw error;
             }
         }
