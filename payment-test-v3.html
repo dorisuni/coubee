@@ -269,12 +269,20 @@ portone:
                 </select>
             </div>
             <div class="form-group">
+                <label>상품명:</label>
+                <input type="text" id="itemName" value="테스트 상품">
+            </div>
+            <div class="form-group">
                 <label>상품 ID:</label>
                 <input type="number" id="productId" value="1">
             </div>
             <div class="form-group">
                 <label>수량:</label>
                 <input type="number" id="quantity" value="2" min="1">
+            </div>
+            <div class="form-group">
+                <label>단가:</label>
+                <input type="number" id="itemPrice" value="500" min="1">
             </div>
             <button class="btn" onclick="startPaymentFlow()">🚀 V2 결제 플로우 시작</button>
         </div>
@@ -290,15 +298,29 @@ portone:
             <h3>🧪 3단계: API 테스트 도구들</h3>
             
             <div class="form-group">
-                <label>QR 토큰으로 주문 조회:</label>
-                <input type="text" id="qrToken" placeholder="QR 토큰 입력">
-                <button class="btn" onclick="lookupOrderByQr()">🔍 QR로 주문 찾기</button>
+                <label>주문 ID로 주문 조회:</label>
+                <input type="text" id="qrToken" placeholder="주문 ID 입력">
+                <button class="btn" onclick="lookupOrderByQr()">🔍 주문 상세 조회</button>
             </div>
             
             <div class="form-group">
                 <label>주문 ID로 수령 등록:</label>
                 <input type="text" id="receiveOrderId" placeholder="주문 ID 입력">
                 <button class="btn" onclick="receiveOrder()">📦 수령 등록</button>
+            </div>
+            
+            <div class="form-group">
+                <label>주문 상태 변경 (순차적 변경):</label>
+                <input type="text" id="updateOrderId" placeholder="주문 ID 입력">
+                <button class="btn" onclick="checkOrderStatusForUpdate()">🔍 현재 상태 확인</button>
+                <div id="currentStatusInfo" style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; display: none;">
+                    <strong>현재 상태:</strong> <span id="currentStatus"></span><br>
+                    <strong>다음 가능한 상태:</strong>
+                    <select id="newOrderStatus" disabled>
+                        <option value="">먼저 현재 상태를 확인하세요</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="updateOrderStatus()" id="updateStatusBtn" disabled>⚙️ 상태 변경</button>
             </div>
             
             <div class="form-group">
@@ -310,21 +332,6 @@ portone:
                 <label>결제 상태 조회:</label>
                 <input type="text" id="paymentStatusId" placeholder="결제 ID 입력">
                 <button class="btn" onclick="getPaymentStatus()">💳 결제 상태 확인</button>
-            </div>
-            
-            <div class="form-group">
-                <label>주문 상태 수동 변경 (관리자):</label>
-                <input type="text" id="updateOrderId" placeholder="주문 ID 입력">
-                <select id="newOrderStatus">
-                    <option value="PENDING">PENDING (결제 대기)</option>
-                    <option value="PAID">PAID (결제 완료)</option>
-                    <option value="PREPARING">PREPARING (준비 중)</option>
-                    <option value="PREPARED">PREPARED (준비 완료)</option>
-                    <option value="RECEIVED">RECEIVED (수령 완료)</option>
-                    <option value="CANCELLED">CANCELLED (취소)</option>
-                    <option value="FAILED">FAILED (실패)</option>
-                </select>
-                <button class="btn" onclick="updateOrderStatus()">⚙️ 상태 변경</button>
             </div>
         </div>
         
@@ -361,6 +368,8 @@ portone:
         const BASE_URL = 'https://coubee-api.murkui.com';
         let currentOrder = null;
         let portoneConfig = null;
+        let currentOrderItems = null; // 현재 주문의 상품 정보를 저장할 전역 변수
+        let currentPaymentId = null; // 현재 결제 ID를 저장할 전역 변수
 
         // --- Auth functions ---
         function base64ToUtf8(str) {
@@ -376,11 +385,19 @@ portone:
                     const payload = JSON.parse(base64ToUtf8(payloadBase64));
                     const exp = payload.exp * 1000;
                     
+                    // JWT payload 디버깅
+                    console.log('🔍 JWT Payload:', payload);
+                    
                     statusEl.textContent = `✅ 로그인됨: ${payload.username} (만료: ${new Date(exp).toLocaleString()})`;
                     statusEl.style.color = '#28a745';
                     
-                    document.getElementById('userId').value = payload.userId;
+                    // userId 필드 확인 및 설정
+                    const userId = payload.userId || payload.sub || payload.id;
+                    document.getElementById('userId').value = userId;
+                    console.log('👤 사용자 ID 설정:', userId);
                 } catch (e) {
+                    console.error('❌ JWT 토큰 파싱 오류:', e);
+                    console.log('🔍 토큰 값:', token);
                     statusEl.textContent = '⚠️ 유효하지 않은 토큰입니다. 다시 로그인하세요.';
                     statusEl.style.color = '#ffc107';
                     sessionStorage.removeItem('accessToken');
@@ -435,7 +452,10 @@ portone:
                 }
 
                 const result = await response.json();
-                const accessToken = result.data.access.token;
+                const accessToken = result.data.accessRefreshToken.access.token;
+                
+                console.log('🔍 로그인 응답:', result);
+                console.log('🎫 추출된 토큰:', accessToken);
 
                 sessionStorage.setItem('accessToken', accessToken);
                 
@@ -513,13 +533,8 @@ portone:
                 document.getElementById('result').textContent = '';
                 log('🚀 PortOne V2 결제 플로우를 시작합니다...');
                 
-                // 1단계: 결제 설정 정보 로드
                 await fetchPaymentConfig();
-                
-                // 2단계: 백엔드에서 주문 생성
                 await createOrder();
-                
-                // 3단계: 백엔드에 결제 준비 요청
                 await preparePayment();
 
                 if (currentOrder) {
@@ -527,26 +542,35 @@ portone:
                     log('✅ 주문 및 결제 준비 완료! 이제 "PortOne V2 결제 진행" 버튼을 클릭하세요.');
                 }
             } catch (error) {
-                // 에러 메시지는 각 함수에서 이미 로그에 남겼으므로 여기서는 추가로 남기지 않음
+                // 에러는 각 함수에서 이미 로그로 남김
             }
         }
         
         async function createOrder() {
+            const itemName = document.getElementById('itemName').value;
+            const productId = parseInt(document.getElementById('productId').value);
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const itemPrice = parseInt(document.getElementById('itemPrice').value);
+
+            currentOrderItems = [{
+                productId: productId,
+                name: itemName,
+                quantity: quantity,
+                price: itemPrice
+            }];
+
             const orderData = {
                 storeId: parseInt(document.getElementById('storeId').value),
                 recipientName: document.getElementById('recipientName').value,
                 paymentMethod: document.getElementById('paymentMethod').value,
-                items: [{
-                    productId: parseInt(document.getElementById('productId').value),
-                    quantity: parseInt(document.getElementById('quantity').value)
-                }]
+                totalAmount: quantity * itemPrice, // 총액 계산
+                items: currentOrderItems
             };
             
             log('📝 주문 생성 중...');
             
             try {
                 const headers = getAuthHeaders();
-                
                 const response = await fetch(`${BASE_URL}/api/order/orders`, {
                     method: 'POST',
                     headers: headers,
@@ -576,7 +600,8 @@ portone:
 
             try {
                 const prepareData = {
-                    storeId: parseInt(document.getElementById('storeId').value)
+                    storeId: parseInt(document.getElementById('storeId').value),
+                    items: currentOrderItems
                 };
 
                 const headers = getAuthHeaders();
@@ -640,6 +665,7 @@ portone:
                     log(`❌ 결제 실패: ${response.message}`, true);
                 } else {
                     log(`🎉 결제 성공! 결제 ID: ${response.paymentId}`);
+                    currentPaymentId = response.paymentId; // 결제 ID 저장
                     await showPickupQrCode(currentOrder.data.orderId);
                 }
             } catch (error) {
@@ -649,32 +675,46 @@ portone:
 
         // --- QR Modal and API Test Tools ---
         async function showPickupQrCode(orderId) {
+            if (!currentOrder) {
+                log('❌ QR 코드 생성 실패: 주문 정보가 없습니다.', true);
+                return;
+            }
             try {
                 log('📱 수령 QR 코드를 생성합니다...');
-                log(`🔍 주문 ID: ${orderId}`);
-                log(`🌐 요청 URL: ${BASE_URL}/api/order/orders/${orderId}`);
                 
-                const orderResponse = await fetch(`${BASE_URL}/api/order/orders/${orderId}`, {
-                    headers: getAuthHeaders()
+                const qrImageUrl = `${BASE_URL}/api/order/qr/orders/${orderId}?size=200`;
+                
+                // 인증 헤더와 함께 QR 코드 이미지 요청
+                const headers = getAuthHeaders();
+                const response = await fetch(qrImageUrl, {
+                    method: 'GET',
+                    headers: headers
                 });
                 
-                log(`📡 주문 조회 응답: ${orderResponse.status} ${orderResponse.statusText}`);
-                
-                if (!orderResponse.ok) {
-                    const errorText = await orderResponse.text();
-                    throw new Error(`주문 정보 조회 실패: HTTP ${orderResponse.status} - ${errorText}`);
+                if (!response.ok) {
+                    throw new Error(`QR 코드 로드 실패: ${response.status}`);
                 }
                 
-                const orderData = await orderResponse.json();
-                const order = orderData.data;
+                // 이미지 blob으로 변환하여 표시
+                const blob = await response.blob();
+                const imageUrl = URL.createObjectURL(blob);
                 
-                const qrImageUrl = `${BASE_URL}/api/qr/orders/${orderId}/image?t=${Date.now()}`;
+                // 모달에 정보 설정 (전역 변수 currentOrder 사용)
+                const qrCodeImage = document.getElementById('qrCodeImage');
+                qrCodeImage.src = imageUrl;
                 
-                document.getElementById('qrCodeImage').src = qrImageUrl;
+                // 메모리 누수 방지를 위해 이전 URL 해제
+                qrCodeImage.onload = () => {
+                    if (qrCodeImage.dataset.prevUrl) {
+                        URL.revokeObjectURL(qrCodeImage.dataset.prevUrl);
+                    }
+                    qrCodeImage.dataset.prevUrl = imageUrl;
+                };
                 document.getElementById('modalOrderId').textContent = orderId;
-                document.getElementById('modalRecipient').textContent = order.recipientName;
-                document.getElementById('modalAmount').textContent = order.totalAmount.toLocaleString();
+                document.getElementById('modalRecipient').textContent = currentOrder.data.buyerName;
+                document.getElementById('modalAmount').textContent = currentOrder.data.amount.toLocaleString();
                 
+                // 모달 표시
                 document.getElementById('qrModal').style.display = 'block';
                 
                 log('✅ 수령 QR 코드가 생성되었습니다!');
@@ -696,25 +736,25 @@ portone:
         }
 
         async function lookupOrderByQr() {
-            const qrToken = document.getElementById('qrToken').value.trim();
-            if (!qrToken) {
-                log('❌ QR 토큰을 입력하세요.', true);
+            const orderId = document.getElementById('qrToken').value.trim();
+            if (!orderId) {
+                log('❌ 주문 ID를 입력하세요.', true);
                 return;
             }
             try {
-                log(`🔍 QR 토큰으로 주문을 조회합니다: ${qrToken}`);
-                const response = await fetch(`${BASE_URL}/api/qr/lookup/${qrToken}`, {
+                log(`🔍 주문 상세 정보를 조회합니다: ${orderId}`);
+                const response = await fetch(`${BASE_URL}/api/order/orders/${orderId}`, {
                     headers: getAuthHeaders()
                 });
                 if (!response.ok) {
                     throw new Error(`조회 실패 (${response.status}): ${await response.text()}`);
                 }
                 const result = await response.json();
-                log('✅ QR 조회 성공!');
+                log('✅ 주문 조회 성공!');
                 log(JSON.stringify(result.data, null, 2));
-                document.getElementById('receiveOrderId').value = result.data.orderId;
+                document.getElementById('receiveOrderId').value = orderId;
             } catch (error) {
-                log(`❌ QR 조회 실패: ${error.message}`, true);
+                log(`❌ 주문 조회 실패: ${error.message}`, true);
             }
         }
         
@@ -726,9 +766,17 @@ portone:
             }
             try {
                 log(`📦 주문 수령을 등록합니다: ${orderId}`);
+                const headers = getAuthHeaders();
+                headers['Content-Type'] = 'application/json';
+                
+                const requestData = {};
+                log(`📝 수령 등록 요청 데이터: ${JSON.stringify(requestData)}`);
+                log(`📝 요청 헤더: ${JSON.stringify(headers)}`);
+                
                 const response = await fetch(`${BASE_URL}/api/order/orders/${orderId}/receive`, {
                     method: 'POST',
-                    headers: getAuthHeaders()
+                    headers: headers,
+                    body: JSON.stringify(requestData)
                 });
                 if (!response.ok) {
                     throw new Error(`수령 등록 실패 (${response.status}): ${await response.text()}`);
@@ -749,7 +797,7 @@ portone:
             }
             try {
                 log(`📋 사용자 ${userId}의 주문 목록을 조회합니다...`);
-                const response = await fetch(`${BASE_URL}/api/user/users/${userId}/orders?page=0&size=10`, {
+                const response = await fetch(`${BASE_URL}/api/order/users/${userId}/orders?page=0&size=10`, {
                     headers: getAuthHeaders()
                 });
                 if (!response.ok) {
@@ -764,14 +812,22 @@ portone:
         }
         
         async function getPaymentStatus() {
-            const paymentId = document.getElementById('paymentStatusId').value.trim();
+            let paymentId = document.getElementById('paymentStatusId').value.trim();
+            
+            // 입력된 결제 ID가 없으면 저장된 결제 ID 사용
+            if (!paymentId && currentPaymentId) {
+                paymentId = currentPaymentId;
+                document.getElementById('paymentStatusId').value = paymentId;
+                log(`💾 저장된 결제 ID를 사용합니다: ${paymentId}`);
+            }
+            
             if (!paymentId) {
                 log('❌ 결제 ID를 입력하세요.', true);
                 return;
             }
             try {
                 log(`💳 결제 상태를 조회합니다: ${paymentId}`);
-                const response = await fetch(`${BASE_URL}/api/order/payments/${paymentId}/status`, {
+                const response = await fetch(`${BASE_URL}/api/order/payment/${paymentId}/status`, {
                     headers: getAuthHeaders()
                 });
                 if (!response.ok) {
@@ -794,10 +850,17 @@ portone:
             }
             try {
                 log(`⚙️ 주문 상태를 변경합니다: ${orderId} → ${newStatus}`);
+                const headers = getAuthHeaders();
+                headers['Content-Type'] = 'application/json';
+                
+                const requestData = { status: newStatus };
+                log(`📝 상태 변경 요청 데이터: ${JSON.stringify(requestData)}`);
+                log(`📝 요청 헤더: ${JSON.stringify(headers)}`);
+                
                 const response = await fetch(`${BASE_URL}/api/order/orders/${orderId}`, {
                     method: 'PATCH',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ status: newStatus })
+                    headers: headers,
+                    body: JSON.stringify(requestData)
                 });
                 if (!response.ok) {
                     throw new Error(`상태 변경 실패 (${response.status}): ${await response.text()}`);
@@ -808,6 +871,184 @@ portone:
             } catch (error) {
                 log(`❌ 주문 상태 변경 실패: ${error.message}`, true);
             }
+        }
+
+        // --- Smart Order Status Management ---
+        const ORDER_STATUS_FLOW = {
+            'PENDING': ['PAID', 'CANCELLED', 'FAILED'],
+            'PAID': ['PREPARING', 'CANCELLED'],
+            'PREPARING': ['PREPARED', 'CANCELLED'],
+            'PREPARED': ['RECEIVED', 'CANCELLED'],
+            'RECEIVED': [], // 최종 상태
+            'CANCELLED': [], // 최종 상태
+            'FAILED': ['PENDING'] // 재시도 가능
+        };
+
+        const STATUS_DESCRIPTIONS = {
+            'PENDING': '결제 대기',
+            'PAID': '결제 완료',
+            'PREPARING': '준비 중',
+            'PREPARED': '준비 완료',
+            'RECEIVED': '수령 완료',
+            'CANCELLED': '취소',
+            'FAILED': '실패'
+        };
+
+        async function checkOrderStatusForUpdate() {
+            const orderId = document.getElementById('updateOrderId').value.trim();
+            if (!orderId) {
+                log('❌ 주문 ID를 입력하세요.', true);
+                return;
+            }
+
+            try {
+                log(`🔍 주문 상태를 확인합니다: ${orderId}`);
+                const response = await fetch(`${BASE_URL}/api/order/orders/${orderId}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`조회 실패 (${response.status}): ${await response.text()}`);
+                }
+
+                const result = await response.json();
+                const currentStatus = result.data.status;
+                
+                log(`✅ 현재 주문 상태: ${currentStatus} (${STATUS_DESCRIPTIONS[currentStatus]})`);
+                
+                // UI 업데이트
+                document.getElementById('currentStatus').textContent = `${currentStatus} (${STATUS_DESCRIPTIONS[currentStatus]})`;
+                
+                const nextStates = ORDER_STATUS_FLOW[currentStatus] || [];
+                const selectElement = document.getElementById('newOrderStatus');
+                
+                // 옵션 초기화
+                selectElement.innerHTML = '';
+                
+                if (nextStates.length === 0) {
+                    selectElement.innerHTML = '<option value="">변경 가능한 상태가 없습니다 (최종 상태)</option>';
+                    selectElement.disabled = true;
+                    document.getElementById('updateStatusBtn').disabled = true;
+                } else {
+                    selectElement.innerHTML = '<option value="">다음 상태를 선택하세요</option>';
+                    nextStates.forEach(status => {
+                        const option = document.createElement('option');
+                        option.value = status;
+                        option.textContent = `${status} (${STATUS_DESCRIPTIONS[status]})`;
+                        selectElement.appendChild(option);
+                    });
+                    selectElement.disabled = false;
+                    
+                    // 상태 선택 시 버튼 활성화
+                    selectElement.onchange = function() {
+                        document.getElementById('updateStatusBtn').disabled = !this.value;
+                    };
+                }
+                
+                document.getElementById('currentStatusInfo').style.display = 'block';
+                
+            } catch (error) {
+                log(`❌ 주문 상태 확인 실패: ${error.message}`, true);
+                document.getElementById('currentStatusInfo').style.display = 'none';
+            }
+        }
+
+        async function quickStatusUpdate(targetStatus) {
+            const orderId = document.getElementById('updateOrderId').value.trim();
+            if (!orderId) {
+                log('❌ 주문 ID를 입력하세요.', true);
+                return;
+            }
+
+            try {
+                // 현재 상태 확인
+                const response = await fetch(`${BASE_URL}/api/order/orders/${orderId}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`주문 조회 실패: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const currentStatus = result.data.status;
+                
+                log(`🎯 빠른 상태 변경: ${currentStatus} → ${targetStatus}`);
+                
+                // 순차적 상태 변경 경로 계산
+                const path = getStatusTransitionPath(currentStatus, targetStatus);
+                
+                if (path.length === 0) {
+                    log(`❌ ${currentStatus}에서 ${targetStatus}로 직접 변경할 수 없습니다.`, true);
+                    return;
+                }
+                
+                log(`📋 상태 변경 경로: ${path.join(' → ')}`);
+                
+                // 순차적으로 상태 변경
+                for (let i = 1; i < path.length; i++) {
+                    const nextStatus = path[i];
+                    log(`⚙️ 상태 변경: ${path[i-1]} → ${nextStatus}`);
+                    
+                    await updateOrderStatusDirect(orderId, nextStatus);
+                    
+                    // 잠시 대기 (서버 처리 시간)
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                log(`✅ 빠른 상태 변경 완료: ${targetStatus}`);
+                
+            } catch (error) {
+                log(`❌ 빠른 상태 변경 실패: ${error.message}`, true);
+            }
+        }
+
+        function getStatusTransitionPath(from, to) {
+            // BFS를 사용하여 최단 경로 찾기
+            if (from === to) return [from];
+            
+            const queue = [[from]];
+            const visited = new Set([from]);
+            
+            while (queue.length > 0) {
+                const path = queue.shift();
+                const current = path[path.length - 1];
+                
+                const nextStates = ORDER_STATUS_FLOW[current] || [];
+                
+                for (const next of nextStates) {
+                    if (next === to) {
+                        return [...path, next];
+                    }
+                    
+                    if (!visited.has(next)) {
+                        visited.add(next);
+                        queue.push([...path, next]);
+                    }
+                }
+            }
+            
+            return []; // 경로 없음
+        }
+
+        async function updateOrderStatusDirect(orderId, newStatus) {
+            const headers = getAuthHeaders();
+            headers['Content-Type'] = 'application/json';
+            
+            const requestData = { status: newStatus };
+            
+            const response = await fetch(`${BASE_URL}/api/order/orders/${orderId}`, {
+                method: 'PATCH',
+                headers: headers,
+                body: JSON.stringify(requestData)
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`상태 변경 실패 (${response.status}): ${errorText}`);
+            }
+            
+            return await response.json();
         }
 
         // --- Onload ---
