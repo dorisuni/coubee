@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PortOne V2 결제 테스트 (로그인 기능)</title>
+    <!-- PortOne V2 Browser SDK -->
+    <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            max-width: 800px; 
+            margin: 50px auto; 
+            padding: 20px; 
+            line-height: 1.6;
+        }
+        .container { background: #f8f9fa; padding: 30px; border-radius: 10px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #495057; }
+        input, select { 
+            width: 100%; 
+            padding: 12px; 
+            border: 2px solid #e9ecef; 
+            border-radius: 6px; 
+            font-size: 16px;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        .btn {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3); }
+        .btn:disabled { background: #6c757d; cursor: not-allowed; transform: none; }
+        .result { 
+            margin-top: 25px; 
+            padding: 20px; 
+            background: white; 
+            border: 2px solid #e9ecef; 
+            border-radius: 6px;
+            white-space: pre-wrap;
+        }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        .step { 
+            background: white; 
+            padding: 20px; 
+            margin: 15px 0; 
+            border-radius: 6px; 
+            border-left: 4px solid #007bff;
+        }
+        .step h3 { margin-top: 0; color: #007bff; }
+        .config-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        /* QR 모달 스타일 */
+        .qr-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+        
+        .qr-modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .qr-modal-header {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 20px;
+            border-radius: 15px 15px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .qr-modal-header h2 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .qr-close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        
+        .qr-close:hover {
+            opacity: 0.7;
+        }
+        
+        .qr-modal-body {
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .qr-modal-body h3 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        
+        .qr-modal-body p {
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+        
+        .qr-container {
+            background: white;
+            border: 3px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            display: inline-block;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .qr-container img {
+            max-width: 250px;
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .qr-container img:hover {
+            transform: scale(1.05);
+        }
+        
+        .order-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .order-info p {
+            margin: 8px 0;
+            font-size: 16px;
+            color: #495057;
+        }
+        
+        .order-info strong {
+            color: #212529;
+        }
+        
+        .qr-actions {
+            margin-top: 20px;
+        }
+        
+        .qr-instruction {
+            font-size: 14px;
+            color: #6c757d;
+            margin: 8px 0;
+            font-style: italic;
+        }
+        
+        .qr-tip {
+            font-size: 16px;
+            color: #28a745;
+            font-weight: 600;
+            margin: 12px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 PortOne V2 결제 테스트 (로그인 기능)</h1>
+        
+        <div class="config-box">
+            <h3>⚙️ V2 설정 가이드</h3>
+            <p><strong>1.</strong> <a href="https://console.portone.io" target="_blank">PortOne 콘솔</a>에서 V2 계정 생성</p>
+            <p><strong>2.</strong> Store ID와 API Secret 발급</p>
+            <p><strong>3.</strong> 아래 설정 파일에 실제 값 입력:</p>
+            <pre>application.yml:
+portone:
+  v2:
+    store-id: "실제_스토어_ID"
+    api-secret: "실제_API_시크릿"</pre>
+        </div>
+
+        <div class="step">
+            <h3>📝 회원가입</h3>
+            <div class="form-group">
+                <label>아이디:</label>
+                <input type="text" id="registerUsername" placeholder="사용할 아이디">
+            </div>
+            <div class="form-group">
+                <label>비밀번호:</label>
+                <input type="password" id="registerPassword" placeholder="사용할 비밀번호">
+            </div>
+            <div class="form-group">
+                <label>닉네임:</label>
+                <input type="text" id="registerNickname" placeholder="사용할 닉네임">
+            </div>
+            <button class="btn" onclick="handleRegister()" style="background: #17a2b8;">📝 회원가입</button>
+        </div>
+
+        <div class="step">
+            <h3>🔐 사용자 인증</h3>
+            <div class="form-group">
+                <label>아이디:</label>
+                <input type="text" id="loginUsername" value="test_user" placeholder="test_user, test_admin 등">
+            </div>
+            <div class="form-group">
+                <label>비밀번호:</label>
+                <input type="password" id="loginPassword" value="1234">
+            </div>
+            <button class="btn" onclick="handleLogin()" style="background: #28a745;">🔑 로그인 (토큰 발급)</button>
+            <p id="loginStatus" style="margin-top: 10px; font-weight: bold;"></p>
+        </div>
+
+        <div class="step">
+            <h3>🛍️ 1단계: 주문 정보 입력</h3>
+            <div class="form-group">
+                <label>사용자 ID (로그인 시 자동 설정):</label>
+                <input type="number" id="userId" readonly>
+            </div>
+            <div class="form-group">
+                <label>매장 ID:</label>
+                <input type="number" id="storeId" value="1">
+            </div>
+            <div class="form-group">
+                <label>수령인 이름:</label>
+                <input type="text" id="recipientName" value="홍길동">
+            </div>
+            <div class="form-group">
+                <label>결제 방법:</label>
+                <select id="paymentMethod">
+                    <option value="CARD">신용카드</option>
+                    <option value="KAKAOPAY">카카오페이</option>
+                    <option value="TOSSPAY">토스페이</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>상품 ID:</label>
+                <input type="number" id="productId" value="1">
+            </div>
+            <div class="form-group">
+                <label>수량:</label>
+                <input type="number" id="quantity" value="2" min="1">
+            </div>
+            <button class="btn" onclick="startPaymentFlow()">🚀 V2 결제 플로우 시작</button>
+        </div>
+        
+        <div class="step">
+            <h3>📱 2단계: V2 결제 진행</h3>
+            <button class="btn" id="paymentBtn" onclick="proceedPayment()" disabled>
+                💳 PortOne V2 결제 진행
+            </button>
+        </div>
+
+        <div class="step">
+            <h3>🧪 3단계: API 테스트 도구들</h3>
+            
+            <div class="form-group">
+                <label>QR 토큰으로 주문 조회:</label>
+                <input type="text" id="qrToken" placeholder="QR 토큰 입력">
+                <button class="btn" onclick="lookupOrderByQr()">🔍 QR로 주문 찾기</button>
+            </div>
+            
+            <div class="form-group">
+                <label>주문 ID로 수령 등록:</label>
+                <input type="text" id="receiveOrderId" placeholder="주문 ID 입력">
+                <button class="btn" onclick="receiveOrder()">📦 수령 등록</button>
+            </div>
+            
+            <div class="form-group">
+                <label>사용자 주문 목록 조회:</label>
+                <button class="btn" onclick="getUserOrders()">📋 내 주문 목록 보기</button>
+            </div>
+            
+            <div class="form-group">
+                <label>결제 상태 조회:</label>
+                <input type="text" id="paymentStatusId" placeholder="결제 ID 입력">
+                <button class="btn" onclick="getPaymentStatus()">💳 결제 상태 확인</button>
+            </div>
+            
+            <div class="form-group">
+                <label>주문 상태 수동 변경 (관리자):</label>
+                <input type="text" id="updateOrderId" placeholder="주문 ID 입력">
+                <select id="newOrderStatus">
+                    <option value="PENDING">PENDING (결제 대기)</option>
+                    <option value="PAID">PAID (결제 완료)</option>
+                    <option value="PREPARING">PREPARING (준비 중)</option>
+                    <option value="PREPARED">PREPARED (준비 완료)</option>
+                    <option value="RECEIVED">RECEIVED (수령 완료)</option>
+                    <option value="CANCELLED">CANCELLED (취소)</option>
+                    <option value="FAILED">FAILED (실패)</option>
+                </select>
+                <button class="btn" onclick="updateOrderStatus()">⚙️ 상태 변경</button>
+            </div>
+        </div>
+        
+        <div class="result" id="result"></div>
+        
+        <!-- QR 코드 모달 -->
+        <div id="qrModal" class="qr-modal" style="display: none;">
+            <div class="qr-modal-content">
+                <div class="qr-modal-header">
+                    <h2>🎉 결제 완료!</h2>
+                    <span class="qr-close" onclick="closeQrModal()">&times;</span>
+                </div>
+                <div class="qr-modal-body">
+                    <h3>📱 수령용 QR 코드</h3>
+                    <p>매장에서 이 QR 코드를 보여주세요</p>
+                    <div class="qr-container">
+                        <img id="qrCodeImage" src="" alt="QR Code" />
+                    </div>
+                    <div class="order-info">
+                        <p><strong>주문 ID:</strong> <span id="modalOrderId"></span></p>
+                        <p><strong>수령인:</strong> <span id="modalRecipient"></span></p>
+                        <p><strong>결제 금액:</strong> <span id="modalAmount"></span>원</p>
+                    </div>
+                    <div class="qr-actions">
+                        <p class="qr-instruction">💡 화면을 캡처하거나 우클릭으로 이미지를 저장하세요</p>
+                        <p class="qr-tip">🏪 매장에서 QR 코드를 스캔하여 주문을 수령하세요</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const BASE_URL = 'https://coubee-api.murkui.com';
+        let currentOrder = null;
+        let portoneConfig = null;
+
+        // --- Auth functions ---
+        function base64ToUtf8(str) {
+            return decodeURIComponent(escape(atob(str)));
+        }
+
+        function updateLoginStatus() {
+            const token = sessionStorage.getItem('accessToken');
+            const statusEl = document.getElementById('loginStatus');
+            if (token) {
+                try {
+                    const payloadBase64 = token.split('.')[1];
+                    const payload = JSON.parse(base64ToUtf8(payloadBase64));
+                    const exp = payload.exp * 1000;
+                    
+                    statusEl.textContent = `✅ 로그인됨: ${payload.username} (만료: ${new Date(exp).toLocaleString()})`;
+                    statusEl.style.color = '#28a745';
+                    
+                    document.getElementById('userId').value = payload.userId;
+                } catch (e) {
+                    statusEl.textContent = '⚠️ 유효하지 않은 토큰입니다. 다시 로그인하세요.';
+                    statusEl.style.color = '#ffc107';
+                    sessionStorage.removeItem('accessToken');
+                }
+            } else {
+                statusEl.textContent = '❌ 로그아웃 상태입니다. 로그인이 필요합니다.';
+                statusEl.style.color = '#dc3545';
+                document.getElementById('userId').value = '';
+            }
+        }
+
+        async function handleRegister() {
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            const nickName = document.getElementById('registerNickname').value;
+
+            try {
+                log(`📝 회원가입을 시도합니다: ${username}`);
+                const response = await fetch(`${BASE_URL}/api/user/auth/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, nickName, role: 'USER' })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`회원가입 실패 (${response.status}): ${errorData.message}`);
+                }
+
+                log('✅ 회원가입 성공! 이제 로그인할 수 있습니다.');
+
+            } catch (error) {
+                log(`❌ 회원가입 오류: ${error.message}`, true);
+            }
+        }
+
+        async function handleLogin() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                log(`🔑 로그인을 시도합니다: ${username}`);
+                const response = await fetch(`${BASE_URL}/api/user/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`로그인 실패 (${response.status}): ${errorData.message}`);
+                }
+
+                const result = await response.json();
+                const accessToken = result.data.access.token;
+
+                sessionStorage.setItem('accessToken', accessToken);
+                
+                log('✅ 로그인 성공! Access Token이 발급되었습니다.');
+                updateLoginStatus();
+
+            } catch (error) {
+                log(`❌ 로그인 오류: ${error.message}`, true);
+                sessionStorage.removeItem('accessToken');
+                updateLoginStatus();
+            }
+        }
+        
+        function getAuthHeaders() {
+            const token = sessionStorage.getItem('accessToken');
+            if (!token) {
+                log('❌ 인증 토큰이 없습니다. 먼저 로그인 해주세요.', true);
+                throw new Error('인증 토큰 없음');
+            }
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+        
+        // --- Common and Payment Flow ---
+        function log(message, isError = false) {
+            const resultDiv = document.getElementById('result');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}
+`;
+            
+            resultDiv.textContent += logEntry;
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.scrollTop = resultDiv.scrollHeight;
+            
+            console.log(message);
+        }
+
+        function getPortOnePayMethod(paymentMethod) {
+            const payMethodMap = { 'CARD': 'CARD', 'KAKAOPAY': 'EASY_PAY', 'TOSSPAY': 'EASY_PAY' };
+            return payMethodMap[paymentMethod] || paymentMethod;
+        }
+
+        async function fetchPaymentConfig() {
+            log('⚙️ 백엔드에서 결제 설정 정보를 가져옵니다...');
+            try {
+                const response = await fetch(`${BASE_URL}/api/order/payment/config`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.status === 403) {
+                    log('❌ 게이트웨이 인증 실패 (403 Forbidden). JWT 토큰이 만료되었거나 유효하지 않습니다.', true);
+                    log('💡 해결 방법: 다시 로그인하여 새로운 토큰을 발급받으세요.', true);
+                    throw new Error(`인증 실패 (${response.status})`);
+                }
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`❌ 설정 정보 로딩 실패 (${response.status}): ${errorText}`, true);
+                    throw new Error(`설정 정보 로딩 실패 (${response.status})`);
+                }
+
+                const configResponse = await response.json();
+                portoneConfig = configResponse.data;
+                log(`✅ 결제 설정 로드 완료! Store ID: ${portoneConfig.storeId}`);
+            } catch (error) {
+                log(`❌ 설정 로드 실패: ${error.message}`, true);
+                throw error;
+            }
+        }
+        
+        async function startPaymentFlow() {
+            try {
+                document.getElementById('result').textContent = '';
+                log('🚀 PortOne V2 결제 플로우를 시작합니다...');
+                
+                await fetchPaymentConfig();
+                await createOrder();
+                
+                if (currentOrder) {
+                    document.getElementById('paymentBtn').disabled = false;
+                    log('✅ 주문 생성 완료! 이제 "PortOne V2 결제 진행" 버튼을 클릭하세요.');
+                }
+            } catch (error) {
+                // 에러 메시지는 각 함수에서 이미 로그에 남겼으므로 여기서는 추가로 남기지 않음
+            }
+        }
+        
+        async function createOrder() {
+            const orderData = {
+                storeId: parseInt(document.getElementById('storeId').value),
+                recipientName: document.getElementById('recipientName').value,
+                paymentMethod: document.getElementById('paymentMethod').value,
+                items: [{
+                    productId: parseInt(document.getElementById('productId').value),
+                    quantity: parseInt(document.getElementById('quantity').value)
+                }]
+            };
+            
+            log('📝 주문 생성 중...');
+            
+            try {
+                const headers = getAuthHeaders();
+                
+                const response = await fetch(`${BASE_URL}/api/order/orders`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(orderData)
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`주문 생성 실패 (${response.status}): ${errorText}`);
+                }
+                
+                currentOrder = await response.json();
+                log(`✅ 주문 생성 성공! 주문 ID: ${currentOrder.data.orderId}, 금액: ${currentOrder.data.amount}원`);
+            } catch (error) {
+                log(`❌ 주문 생성 오류: ${error.message}`, true);
+                throw error;
+            }
+        }
+
+        async function proceedPayment() {
+            if (!currentOrder || !portoneConfig) {
+                log('❌ 주문 또는 결제 설정 정보가 없습니다. 플로우를 다시 시작하세요.', true);
+                return;
+            }
+            
+            try {
+                log('🎯 PortOne V2 결제창을 호출합니다...');
+                const selectedPayMethodKey = document.getElementById('paymentMethod').value;
+                const channelKey = portoneConfig.channelKeys[selectedPayMethodKey.toLowerCase()];
+                const portOnePayMethod = getPortOnePayMethod(selectedPayMethodKey);
+
+                if (!channelKey) {
+                    log(`❌ 설정 오류: '${selectedPayMethodKey}'에 대한 채널 키를 찾을 수 없습니다.`, true);
+                    return;
+                }
+
+                const paymentData = {
+                    storeId: portoneConfig.storeId,
+                    channelKey: channelKey,
+                    paymentId: currentOrder.data.paymentId,
+                    orderName: currentOrder.data.orderName,
+                    totalAmount: currentOrder.data.amount,
+                    currency: "KRW",
+                    payMethod: portOnePayMethod,
+                    customer: {
+                        fullName: currentOrder.data.buyerName,
+                        phoneNumber: "010-1234-5678",
+                        email: "test@example.com"
+                    },
+                    redirectUrl: `${window.location.origin}/payment-complete?orderId=${currentOrder.data.orderId}`,
+                    notificationUrls: [`${BASE_URL}/api/order/webhook/portone`]
+                };
+
+                const response = await window.PortOne.requestPayment(paymentData);
+                
+                if (response.code != null) {
+                    log(`❌ 결제 실패: ${response.message}`, true);
+                } else {
+                    log(`🎉 결제 성공! 결제 ID: ${response.paymentId}`);
+                    await showPickupQrCode(currentOrder.data.orderId);
+                }
+            } catch (error) {
+                log(`❌ 결제 과정에서 오류: ${error.message}`, true);
+            }
+        }
+
+        // --- QR Modal and API Test Tools ---
+        async function showPickupQrCode(orderId) {
+            try {
+                log('📱 수령 QR 코드를 생성합니다...');
+                log(`🔍 주문 ID: ${orderId}`);
+                log(`🌐 요청 URL: ${BASE_URL}/api/order/orders/${orderId}`);
+                
+                const orderResponse = await fetch(`${BASE_URL}/api/order/orders/${orderId}`, {
+                    headers: getAuthHeaders()
+                });
+                
+                log(`📡 주문 조회 응답: ${orderResponse.status} ${orderResponse.statusText}`);
+                
+                if (!orderResponse.ok) {
+                    const errorText = await orderResponse.text();
+                    throw new Error(`주문 정보 조회 실패: HTTP ${orderResponse.status} - ${errorText}`);
+                }
+                
+                const orderData = await orderResponse.json();
+                const order = orderData.data;
+                
+                const qrImageUrl = `${BASE_URL}/api/qr/orders/${orderId}/image?t=${Date.now()}`;
+                
+                document.getElementById('qrCodeImage').src = qrImageUrl;
+                document.getElementById('modalOrderId').textContent = orderId;
+                document.getElementById('modalRecipient').textContent = order.recipientName;
+                document.getElementById('modalAmount').textContent = order.totalAmount.toLocaleString();
+                
+                document.getElementById('qrModal').style.display = 'block';
+                
+                log('✅ 수령 QR 코드가 생성되었습니다!');
+                
+            } catch (error) {
+                log(`❌ QR 코드 생성 실패: ${error.message}`, true);
+            }
+        }
+        
+        function closeQrModal() {
+            document.getElementById('qrModal').style.display = 'none';
+        }
+        
+        window.onclick = function(event) {
+            const modal = document.getElementById('qrModal');
+            if (event.target === modal) {
+                closeQrModal();
+            }
+        }
+
+        async function lookupOrderByQr() {
+            const qrToken = document.getElementById('qrToken').value.trim();
+            if (!qrToken) {
+                log('❌ QR 토큰을 입력하세요.', true);
+                return;
+            }
+            try {
+                log(`🔍 QR 토큰으로 주문을 조회합니다: ${qrToken}`);
+                const response = await fetch(`${BASE_URL}/api/qr/lookup/${qrToken}`, {
+                    headers: getAuthHeaders()
+                });
+                if (!response.ok) {
+                    throw new Error(`조회 실패 (${response.status}): ${await response.text()}`);
+                }
+                const result = await response.json();
+                log('✅ QR 조회 성공!');
+                log(JSON.stringify(result.data, null, 2));
+                document.getElementById('receiveOrderId').value = result.data.orderId;
+            } catch (error) {
+                log(`❌ QR 조회 실패: ${error.message}`, true);
+            }
+        }
+        
+        async function receiveOrder() {
+            const orderId = document.getElementById('receiveOrderId').value.trim();
+            if (!orderId) {
+                log('❌ 주문 ID를 입력하세요.', true);
+                return;
+            }
+            try {
+                log(`📦 주문 수령을 등록합니다: ${orderId}`);
+                const response = await fetch(`${BASE_URL}/api/order/orders/${orderId}/receive`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                if (!response.ok) {
+                    throw new Error(`수령 등록 실패 (${response.status}): ${await response.text()}`);
+                }
+                const result = await response.json();
+                log('✅ 수령 등록 성공!');
+                log(JSON.stringify(result.data, null, 2));
+            } catch (error) {
+                log(`❌ 수령 등록 실패: ${error.message}`, true);
+            }
+        }
+        
+        async function getUserOrders() {
+            const userId = document.getElementById('userId').value;
+            if (!userId) {
+                log('❌ 먼저 로그인해주세요.', true);
+                return;
+            }
+            try {
+                log(`📋 사용자 ${userId}의 주문 목록을 조회합니다...`);
+                const response = await fetch(`${BASE_URL}/api/user/users/${userId}/orders?page=0&size=10`, {
+                    headers: getAuthHeaders()
+                });
+                if (!response.ok) {
+                    throw new Error(`조회 실패 (${response.status}): ${await response.text()}`);
+                }
+                const result = await response.json();
+                log('✅ 주문 목록 조회 성공!');
+                log(JSON.stringify(result.data, null, 2));
+            } catch (error) {
+                log(`❌ 주문 목록 조회 실패: ${error.message}`, true);
+            }
+        }
+        
+        async function getPaymentStatus() {
+            const paymentId = document.getElementById('paymentStatusId').value.trim();
+            if (!paymentId) {
+                log('❌ 결제 ID를 입력하세요.', true);
+                return;
+            }
+            try {
+                log(`💳 결제 상태를 조회합니다: ${paymentId}`);
+                const response = await fetch(`${BASE_URL}/api/order/payments/${paymentId}/status`, {
+                    headers: getAuthHeaders()
+                });
+                if (!response.ok) {
+                    throw new Error(`조회 실패 (${response.status}): ${await response.text()}`);
+                }
+                const result = await response.json();
+                log('✅ 결제 상태 조회 성공!');
+                log(JSON.stringify(result.data, null, 2));
+            } catch (error) {
+                log(`❌ 결제 상태 조회 실패: ${error.message}`, true);
+            }
+        }
+        
+        async function updateOrderStatus() {
+            const orderId = document.getElementById('updateOrderId').value.trim();
+            const newStatus = document.getElementById('newOrderStatus').value;
+            if (!orderId) {
+                log('❌ 주문 ID를 입력하세요.', true);
+                return;
+            }
+            try {
+                log(`⚙️ 주문 상태를 변경합니다: ${orderId} → ${newStatus}`);
+                const response = await fetch(`${BASE_URL}/api/order/orders/${orderId}`, {
+                    method: 'PATCH',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ status: newStatus })
+                });
+                if (!response.ok) {
+                    throw new Error(`상태 변경 실패 (${response.status}): ${await response.text()}`);
+                }
+                const result = await response.json();
+                log('✅ 주문 상태 변경 성공!');
+                log(JSON.stringify(result.data, null, 2));
+            } catch (error) {
+                log(`❌ 주문 상태 변경 실패: ${error.message}`, true);
+            }
+        }
+
+        // --- Onload ---
+        window.addEventListener('load', function() {
+            log('🔧 PortOne V2 테스트 페이지가 로드되었습니다.');
+            log('💡 먼저 테스트 계정으로 로그인하여 토큰을 발급받으세요.');
+            updateLoginStatus();
+            
+            if (typeof window.PortOne !== 'undefined') {
+                log('✅ PortOne V2 SDK 로드 완료!');
+            } else {
+                log('❌ PortOne V2 SDK가 로드되지 않았습니다.', true);
+            }
+        });
+    </script>
+</body>
+</html>

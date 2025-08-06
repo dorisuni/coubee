@@ -14,16 +14,8 @@ public class AuthenticationHeaderFilterFunction {
         return request -> {
             ServerRequest.Builder requestBuilder = ServerRequest.from(request);
 
-            // OPTIONS 요청(프리플라이트)은 인증 헤더 추가 없이 바로 통과
-            if ("OPTIONS".equalsIgnoreCase(request.method().name())) {
-                log.debug("OPTIONS request detected, skipping authentication header addition for URI: {}", request.uri());
-                return requestBuilder.build();
-            }
-
-            // 인증 정보가 있는 경우에만 헤더 추가
-            var authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated() &&
-                authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if( principal instanceof UserPrincipal userPrincipal) {
                 requestBuilder.header("X-Auth-UserId", userPrincipal.getUserId());
                 requestBuilder.header("X-Auth-UserName", userPrincipal.getUsername());
                 requestBuilder.header("X-Auth-UserNickName", userPrincipal.getNickName());
@@ -31,8 +23,6 @@ public class AuthenticationHeaderFilterFunction {
                 log.info("role : {}",userPrincipal.getRole());
                 // 필요시 권한 정보 입력
                 // requestBuilder.header("X-Auth-Authorities", ...);
-            } else {
-                log.debug("No authentication context found for URI: {}, skipping auth headers", request.uri());
             }
 
             String remoteAddr = HttpUtils.getRemoteAddr(request.servletRequest());
