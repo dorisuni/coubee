@@ -1,0 +1,115 @@
+#!/usr/bin/env groovy
+def APP_NAME
+def APP_VERSION
+def DOCKER_IMAGE_NAME
+def PROD_BUILD = false
+
+pipeline {
+    agent {
+        node {
+            label 'master'
+        }
+    }
+
+    parameters {
+        gitParameter branch: '',
+                      branchFilter: '.*',
+                      defaultValue: 'origin/main',
+                      description: '', listSize: '0',
+                      name: 'TAG',
+                      quickFilterEnabled: false,
+                      selectedValue: 'DEFAULT',
+                      sortMode: 'DESCENDING_SMART',
+                      tagFilter: '*',
+                      type: 'PT_BRANCH_TAG'
+
+        booleanParam defaultValue: false, description: '', name: 'RELEASE'
+    }
+
+    environment {
+        GIT_URL = "https://github.com/lg-cns-team-4-retail/coubee-be-store.git"
+        GITHUB_CREDENTIAL = "github-token"
+        ARTIFACTS = "build/libs/**"
+        AWS_ACCOUNT_ID = "310095858382"
+        AWS_REGION = "ap-northeast-2"
+        ECR_REPO = "coubee"
+        ECR_CREDENTIAL = "coubee-ecr"
+    }
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: "30", artifactNumToKeepStr: "30"))
+        timeout(time: 120, unit: 'MINUTES')
+    }
+
+    tools {
+        gradle 'Gradle 8.14.2'
+        jdk 'OpenJDK 17'
+        dockerTool 'Docker'
+    }
+
+    stages {
+        stage('Set Version') {
+            steps {
+                script {
+                    APP_NAME = sh(script: "gradle -q getAppName", returnStdout: true).trim()
+                    APP_VERSION = sh(script: "gradle -q getAppVersion", returnStdout: true).trim()
+
+                    // ECR 이미지 URI
+                    DOCKER_IMAGE_NAME = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${APP_VERSION}"
+
+                    sh "echo APP_NAME is ${APP_NAME}"
+                    sh "echo APP_VERSION is ${APP_VERSION}"
+                    sh "echo DOCKER_IMAGE_NAME is ${DOCKER_IMAGE_NAME}"
+
+                    sh "echo TAG is ${params.TAG}"
+                    if (!params.TAG.startsWith('origin') && !params.TAG.endsWith('/main')) {
+                        if (params.RELEASE == true) {
+                            APP_VERSION += '-RELEASE'
+                            PROD_BUILD = true
+                        } else {
+                            APP_VERSION += '-TAG'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Test Application') {
+            steps {
+                sh "gradle clean build"
+            }
+        }
+
+        stage('Login to AWS ECR') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: "${env.ECR_CREDENTIAL}"
+                ]]) {
+                    sh """
+                        aws ecr get-login-password --region ${AWS_REGION} \
+                        | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                    """
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build("${DOCKER_IMAGE_NAME}", "-f .docker/Dockerfile .")
+                }
+            }
+        }
+
+        stage('Push Docker Image to ECR') {
+            steps {
+                script {
+                    sh "docker push ${DOCKER_IMAGE_NAME}"
+                    sh "docker rmi ${DOCKER_IMAGE_NAME}"
+                }
+            }
+        }
+    }
+}

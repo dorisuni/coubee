@@ -11,12 +11,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${file.upload.base-dir}")
     private String baseDir;
 
-    @Value("${file.upload.resource-url}")
-    private String resourceUrl;
-
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler(resourceUrl)
+        registry.addResourceHandler("/api/user/images/**")
                 .addResourceLocations("file:" + baseDir + "/");
     }
 }

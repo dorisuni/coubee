@@ -10,7 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
 
-@Profile("stg")
+@Profile({"local", "stg"})
 @Slf4j
 @Component
 public class LocalFileUploader implements FileUploader {

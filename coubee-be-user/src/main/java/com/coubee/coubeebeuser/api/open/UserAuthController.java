@@ -2,6 +2,7 @@ package com.coubee.coubeebeuser.api.open;
 
 import com.coubee.coubeebeuser.common.dto.ApiResponseDto;
 import com.coubee.coubeebeuser.domain.dto.SiteUserLoginDto;
+import com.coubee.coubeebeuser.domain.dto.SiteUserLoginResponseDto;
 import com.coubee.coubeebeuser.domain.dto.SiteUserRefreshDto;
 import com.coubee.coubeebeuser.domain.dto.SiteUserRegisterDto;
 import com.coubee.coubeebeuser.secret.jwt.dto.TokenDto;
@@ -28,10 +29,19 @@ public class UserAuthController {
         return ApiResponseDto.defaultOk();
     }
 
+//    @PostMapping(value = "/login")
+//    public ApiResponseDto<TokenDto.AccessRefreshToken> login(@RequestBody @Valid SiteUserLoginDto loginDto) {
+//        TokenDto.AccessRefreshToken token = siteUserService.login(loginDto);
+//        SiteUserLoginResponseDto responseDto = new SiteUserLoginResponseDto();
+//        responseDto.setUserInfo();
+//        responseDto.setAccessRefreshToken(token);
+//        return ApiResponseDto.createOk(token);
+//    }
+
     @PostMapping(value = "/login")
-    public ApiResponseDto<TokenDto.AccessRefreshToken> login(@RequestBody @Valid SiteUserLoginDto loginDto) {
-        TokenDto.AccessRefreshToken token = siteUserService.login(loginDto);
-        return ApiResponseDto.createOk(token);
+    public ApiResponseDto<SiteUserLoginResponseDto> login(@RequestBody @Valid SiteUserLoginDto loginDto) {
+        SiteUserLoginResponseDto responseDto = siteUserService.login(loginDto);
+        return ApiResponseDto.createOk(responseDto);
     }
 
     @PostMapping(value = "/refresh")

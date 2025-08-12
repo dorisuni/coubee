@@ -18,6 +18,13 @@ public class GatewayRequestHeaderUtils {
         return getRequestHeaderParamAsString("X-Auth-UserName");
     }
 
+    public static String getUserNickName() {
+        return getRequestHeaderParamAsString("X-Auth-UserNickName");
+    }
+    public static String getUserRole() {
+        return getRequestHeaderParamAsString("X-Auth-Role");
+    }
+
     public static String getClientDevice() {
         return getRequestHeaderParamAsString("X-Client-Device");
     }
