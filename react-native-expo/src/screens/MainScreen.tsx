@@ -92,10 +92,10 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
       await fetchPaymentConfig();
       
       // 2. 주문 생성
-      await createOrder();
+      const order = await createOrder();
       
-      // 3. 결제 준비
-      await preparePayment();
+      // 3. 결제 준비 (생성된 주문 정보를 직접 전달)
+      await preparePayment(order);
       
       // 4. 결제창 표시
       setShowPayment(true);
@@ -117,7 +117,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
     }
   };
 
-  const createOrder = async () => {
+  const createOrder = async (): Promise<Order> => {
     if (!userId) throw new Error('사용자 정보가 없습니다.');
 
     const orderItems: OrderItem[] = [{
@@ -145,14 +145,17 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
         paymentMethod,
         items: orderItems
       };
-      setCurrentOrder(order);
+      setCurrentOrder(order); // 상태도 업데이트 (다른 함수들을 위해)
+      return order; // 주문 객체를 직접 반환
     } catch (error: any) {
       throw new Error('주문 생성 실패: ' + (error.response?.data?.message || error.message));
     }
   };
 
-  const preparePayment = async () => {
-    if (!currentOrder) throw new Error('주문 정보가 없습니다.');
+  const preparePayment = async (order?: Order) => {
+    // 매개변수로 전달된 주문 정보를 우선 사용, 없으면 상태에서 가져오기
+    const orderToUse = order || currentOrder;
+    if (!orderToUse) throw new Error('주문 정보가 없습니다.');
 
     const prepareData = {
       storeId: parseInt(storeId),
@@ -165,7 +168,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
     };
 
     try {
-      await paymentAPI.preparePayment(currentOrder.orderId, prepareData);
+      await paymentAPI.preparePayment(orderToUse.orderId, prepareData);
     } catch (error: any) {
       throw new Error('결제 준비 실패: ' + (error.response?.data?.message || error.message));
     }
