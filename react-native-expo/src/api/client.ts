@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { encode, decode } from 'base-64';
 
 // API 기본 설정
 const BASE_URL = 'https://coubee-api.murkui.com';
@@ -61,6 +62,19 @@ export const tokenManager = {
   async isLoggedIn(): Promise<boolean> {
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
     return !!token;
+  },
+
+  async getUserInfoFromToken(): Promise<{ userId: number } | null> {
+    const token = await this.getToken();
+    if (!token) return null;
+    try {
+      const payloadBase64 = token.split('.')[1];
+      const payload = JSON.parse(decode(payloadBase64));
+      return { userId: payload.userId || payload.sub || payload.id };
+    } catch (e) {
+      console.error("토큰 디코딩 실패", e);
+      return null;
+    }
   }
 };
 
@@ -228,7 +242,7 @@ export const qrAPI = {
       );
 
       // ArrayBuffer를 Base64로 변환
-      const base64 = btoa(
+      const base64 = encode(
         new Uint8Array(response.data)
           .reduce((data, byte) => data + String.fromCharCode(byte), '')
       );

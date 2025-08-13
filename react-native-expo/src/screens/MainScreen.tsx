@@ -50,12 +50,9 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
 
   const loadUserInfo = async () => {
     try {
-      const token = await tokenManager.getToken();
-      if (token) {
-        // JWT 토큰에서 사용자 정보 추출
-        const payloadBase64 = token.split('.')[1];
-        const payload = JSON.parse(atob(payloadBase64));
-        setUserId(payload.userId || payload.sub || payload.id);
+      const userInfo = await tokenManager.getUserInfoFromToken();
+      if (userInfo) {
+        setUserId(userInfo.userId);
       }
     } catch (error) {
       console.error('사용자 정보 로드 실패:', error);
