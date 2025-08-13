@@ -16,6 +16,7 @@ import { Picker } from '@react-native-picker/picker';
 import { Payment, PortOneController } from '@portone/react-native-sdk';
 import { authAPI, orderAPI, paymentAPI, qrAPI, tokenManager } from '../api/client';
 import { PaymentMethod, OrderItem, Order, PaymentConfig, PAYMENT_METHOD_LABELS } from '../types';
+import ApiTestScreen from './ApiTestScreen';
 
 interface MainScreenProps {
   onLogout: () => void;
@@ -23,7 +24,10 @@ interface MainScreenProps {
 
 const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
   const paymentController = useRef<PortOneController>(null);
-  
+
+  // 화면 상태 관리
+  const [currentScreen, setCurrentScreen] = useState<'main' | 'apiTest'>('main');
+
   // 사용자 정보
   const [userId, setUserId] = useState<number | null>(null);
   
@@ -216,6 +220,13 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
     }
   };
 
+  // API 테스트 화면 표시
+  if (currentScreen === 'apiTest') {
+    return (
+      <ApiTestScreen onGoBack={() => setCurrentScreen('main')} />
+    );
+  }
+
   if (showPayment && currentOrder && paymentConfig) {
     const channelKey = paymentConfig.channelKeys[paymentMethod.toLowerCase()];
     
@@ -250,9 +261,17 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
         {/* 헤더 */}
         <View style={styles.header}>
           <Text style={styles.title}>🍯 Coubee 결제</Text>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutButtonText}>로그아웃</Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              onPress={() => setCurrentScreen('apiTest')}
+              style={styles.apiTestButton}
+            >
+              <Text style={styles.apiTestButtonText}>🧪 API 테스트</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+              <Text style={styles.logoutButtonText}>로그아웃</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* 주문 정보 입력 */}
@@ -421,6 +440,21 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#007bff',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  apiTestButton: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  apiTestButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   logoutButton: {
     backgroundColor: '#dc3545',

@@ -254,4 +254,116 @@ export const qrAPI = {
   }
 };
 
+// 추가 API 엔드포인트들 (coubee-be-order 백엔드 테스트용)
+export const additionalAPI = {
+  // 매장 관리 API
+  getStoreList: async (): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get('/api/order/stores');
+    return response.data;
+  },
+
+  getStoreDetail: async (storeId: number): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/stores/${storeId}`);
+    return response.data;
+  },
+
+  createStore: async (storeData: any): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.post('/api/order/stores', storeData);
+    return response.data;
+  },
+
+  // 상품 관리 API
+  getProductList: async (storeId: number): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/stores/${storeId}/products`);
+    return response.data;
+  },
+
+  getProductDetail: async (productId: number): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/products/${productId}`);
+    return response.data;
+  },
+
+  createProduct: async (storeId: number, productData: any): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.post(`/api/order/stores/${storeId}/products`, productData);
+    return response.data;
+  },
+
+  // 주문 관리 API (기존 orderAPI 확장)
+  getAllOrders: async (page: number = 0, size: number = 10): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/orders?page=${page}&size=${size}`);
+    return response.data;
+  },
+
+  getStoreOrders: async (storeId: number, page: number = 0, size: number = 10): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/stores/${storeId}/orders?page=${page}&size=${size}`);
+    return response.data;
+  },
+
+  cancelOrder: async (orderId: string): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.delete(`/api/order/orders/${orderId}`);
+    return response.data;
+  },
+
+  // 통계 API
+  getStoreStatistics: async (storeId: number, startDate?: string, endDate?: string): Promise<ApiResponse<any>> => {
+    let url = `/api/order/stores/${storeId}/statistics`;
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (params.toString()) url += `?${params.toString()}`;
+
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(url);
+    return response.data;
+  },
+
+  getDailySales: async (storeId: number, date: string): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/stores/${storeId}/sales/daily?date=${date}`);
+    return response.data;
+  },
+
+  // 사용자 관리 API
+  getUserProfile: async (userId: number): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/user/users/${userId}/profile`);
+    return response.data;
+  },
+
+  updateUserProfile: async (userId: number, profileData: any): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.put(`/api/user/users/${userId}/profile`, profileData);
+    return response.data;
+  },
+
+  // 알림 API
+  getNotificationList: async (userId: number): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/users/${userId}/notifications`);
+    return response.data;
+  },
+
+  markNotificationAsRead: async (notificationId: number): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.patch(`/api/order/notifications/${notificationId}/read`);
+    return response.data;
+  },
+
+  // 리뷰 API
+  getProductReviews: async (productId: number): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/products/${productId}/reviews`);
+    return response.data;
+  },
+
+  createReview: async (orderId: string, reviewData: any): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.post(`/api/order/orders/${orderId}/review`, reviewData);
+    return response.data;
+  },
+
+  // 쿠폰 API
+  getUserCoupons: async (userId: number): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/users/${userId}/coupons`);
+    return response.data;
+  },
+
+  useCoupon: async (couponId: number, orderId: string): Promise<ApiResponse<any>> => {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.post(`/api/order/coupons/${couponId}/use`, { orderId: orderId });
+    return response.data;
+  }
+};
+
 export default apiClient;
