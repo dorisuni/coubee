@@ -1,40 +1,63 @@
-import { Payment, PortOneController } from "@portone/react-native-sdk"
-import { createRef, useEffect } from "react"
-import { Alert, BackHandler, SafeAreaView } from "react-native"
+import React, { useState, useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import LoginScreen from './src/screens/LoginScreen';
+import MainScreen from './src/screens/MainScreen';
+import { tokenManager } from './src/api/client';
 
 export default function App() {
-  const controller = createRef<PortOneController>()
-  // 뒤로가기 버튼을 눌렀을 때 결제창 내부에서 처리
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (controller.current?.canGoBack) {
-          controller.current.webview?.goBack()
-          return true
-        }
-        return false
-      },
-    )
-    return () => backHandler.remove()
-  })
-  const uid = Date.now().toString(16)
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const loggedIn = await tokenManager.isLoggedIn();
+      setIsLoggedIn(loggedIn);
+    } catch (error) {
+      console.error('인증 상태 확인 실패:', error);
+      setIsLoggedIn(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007bff" />
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <Payment
-        ref={controller}
-        request={{
-          storeId: "store-00000000-0000-0000-0000-000000000000",
-          channelKey: "channel-key-00000000-0000-0000-0000-000000000000",
-          paymentId: uid,
-          orderName: "주문명",
-          totalAmount: 1000,
-          currency: "CURRENCY_KRW",
-          payMethod: "CARD",
-        }}
-        onError={(error) => Alert.alert("실패", error.message)}
-        onComplete={(complete) => Alert.alert("완료", JSON.stringify(complete))}
-      />
-    </SafeAreaView>
-  )
+    <>
+      <StatusBar style="auto" />
+      {isLoggedIn ? (
+        <MainScreen onLogout={handleLogout} />
+      ) : (
+        <LoginScreen onLoginSuccess={handleLoginSuccess} />
+      )}
+    </>
+  );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+});

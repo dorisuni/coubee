@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "react-native-expo",
-    "slug": "react-native-expo",
+    "name": "Coubee 결제",
+    "slug": "coubee-payment",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,13 +16,75 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.kiwiyou.reactnativeexpo"
+      "package": "com.coubee.payment",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "queries": {
+        "schemes": [
+          "kakaotalk",
+          "supertoss",
+          "toss",
+          "payco",
+          "lpayapp",
+          "wooripay",
+          "nhallonepay",
+          "hanawalletmembers",
+          "shinsegaeeasypayment",
+          "citispay",
+          "cloudpay",
+          "kbbank",
+          "liivbank",
+          "newsmartpib",
+          "ukbanksmartbank",
+          "wooribank",
+          "nonghyupbank",
+          "suhyupbank",
+          "ibkbank"
+        ],
+        "packages": [
+          "com.kakao.talk",
+          "viva.republica.toss",
+          "com.nhnent.payapp",
+          "com.lotte.lottesmartpay",
+          "com.wooricard.wooriwallet",
+          "com.nhcard.nhmembers",
+          "com.hanaskcard.paycla",
+          "kr.co.shinsegae.smartpay",
+          "com.citibank.citimobile",
+          "com.kbcard.cxh.appcard",
+          "com.kbstar.liivbank",
+          "com.kbstar.kbbank",
+          "com.wooribank.smart.npib",
+          "com.kbstar.reboot",
+          "com.wooribank.pib.smart",
+          "com.nonghyup.banking",
+          "com.suhyup.suhyupbank",
+          "com.ibk.neobanking"
+        ]
+      }
     },
     "plugins": [
       "@portone/react-native-sdk/plugin"
     ],
     "ios": {
-      "bundleIdentifier": "com.kiwiyou.reactnativeexpo"
+      "bundleIdentifier": "com.coubee.payment",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "kakaotalk",
+          "supertoss",
+          "toss",
+          "payco",
+          "lpayapp",
+          "wooripay",
+          "nhallonepay",
+          "hanawalletmembers",
+          "shinsegaeeasypayment",
+          "citispay",
+          "cloudpay"
+        ]
+      }
     }
   }
 }
