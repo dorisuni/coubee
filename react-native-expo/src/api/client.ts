@@ -201,6 +201,12 @@ export const orderAPI = {
   async updateOrderStatus(orderId: string, status: string): Promise<ApiResponse<any>> {
     const response: AxiosResponse<ApiResponse<any>> = await apiClient.patch(`/api/order/orders/${orderId}`, { status });
     return response.data;
+  },
+
+  // 주문 상태 조회
+  async getOrderStatus(orderId: string): Promise<ApiResponse<any>> {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/orders/${orderId}/status`);
+    return response.data;
   }
 };
 
@@ -251,26 +257,30 @@ export const qrAPI = {
     } catch (error: any) {
       throw new Error(`QR 코드 로드 실패: ${error.response?.status || error.message}`);
     }
+  },
+
+  // 결제 QR 코드 이미지를 Base64로 가져오기
+  async getPaymentQrCodeAsBase64(merchantUid: string, size: number = 200): Promise<string> {
+    try {
+      const response: AxiosResponse<any> = await apiClient.get(
+        `/api/order/qr/payment/${merchantUid}?size=${size}`,
+        { responseType: 'arraybuffer' }
+      );
+
+      const base64 = encode(
+        new Uint8Array(response.data)
+          .reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+
+      return `data:image/png;base64,${base64}`;
+    } catch (error: any) {
+      throw new Error(`결제 QR 코드 로드 실패: ${error.response?.status || error.message}`);
+    }
   }
 };
 
 // 추가 API 엔드포인트들 (coubee-be-order 백엔드 테스트용)
 export const additionalAPI = {
-  // 매장 관리 API
-  getStoreList: async (): Promise<ApiResponse<any>> => {
-    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get('/api/order/stores');
-    return response.data;
-  },
-
-  getStoreDetail: async (storeId: number): Promise<ApiResponse<any>> => {
-    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/stores/${storeId}`);
-    return response.data;
-  },
-
-  createStore: async (storeData: any): Promise<ApiResponse<any>> => {
-    const response: AxiosResponse<ApiResponse<any>> = await apiClient.post('/api/order/stores', storeData);
-    return response.data;
-  },
 
   // 상품 관리 API
   getProductList: async (storeId: number): Promise<ApiResponse<any>> => {

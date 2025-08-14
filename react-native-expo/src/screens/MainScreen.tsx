@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   Modal,
   Image,
+  Clipboard,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Payment, PortOneController } from '@portone/react-native-sdk';
@@ -32,13 +33,13 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
   const [userId, setUserId] = useState<number | null>(null);
   
   // 주문 정보
-  const [storeId, setStoreId] = useState('1');
   const [recipientName, setRecipientName] = useState('홍길동');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD');
   const [itemName, setItemName] = useState('테스트 상품');
   const [productId, setProductId] = useState('1');
   const [quantity, setQuantity] = useState('2');
   const [itemPrice, setItemPrice] = useState('500');
+  const storeId = '1'; // 매장 ID는 고정값으로 설정
   
   // 상태 관리
   const [isLoading, setIsLoading] = useState(false);
@@ -220,6 +221,11 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    Clipboard.setString(text);
+    Alert.alert('복사 완료', '주문 ID가 클립보드에 복사되었습니다.');
+  };
+
   // API 테스트 화면 표시
   if (currentScreen === 'apiTest') {
     return (
@@ -278,16 +284,6 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🛍️ 주문 정보</Text>
           
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>매장 ID</Text>
-            <TextInput
-              style={styles.input}
-              value={storeId}
-              onChangeText={setStoreId}
-              keyboardType="numeric"
-            />
-          </View>
-
           <View style={styles.inputGroup}>
             <Text style={styles.label}>수령인 이름</Text>
             <TextInput
@@ -403,9 +399,11 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
             
             {currentOrder && (
               <View style={styles.orderInfo}>
-                <Text style={styles.orderInfoText}>
-                  <Text style={styles.bold}>주문 ID:</Text> {currentOrder.orderId}
-                </Text>
+                <TouchableOpacity onLongPress={() => copyToClipboard(currentOrder.orderId)}>
+                  <Text style={styles.orderInfoText}>
+                    <Text style={styles.bold}>주문 ID:</Text> {currentOrder.orderId}
+                  </Text>
+                </TouchableOpacity>
                 <Text style={styles.orderInfoText}>
                   <Text style={styles.bold}>수령인:</Text> {currentOrder.buyerName}
                 </Text>
