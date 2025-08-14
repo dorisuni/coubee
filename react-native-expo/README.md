@@ -111,55 +111,23 @@ src/
 
 ## 🔧 지원하는 API 엔드포인트 목록
 
-### 🔐 인증 관련
-- `POST /api/user/auth/logout` - 로그아웃
-
-### 📦 주문 관리
-- `GET /api/order/users/{userId}/orders` - 사용자 주문 목록 조회
-- `GET /api/order/orders` - 전체 주문 목록 조회
+### 📦 주문 관리 (Order Management)
+- `POST /api/order/orders` - 주문 생성
 - `GET /api/order/orders/{orderId}` - 주문 상세 조회
+- `GET /api/order/orders/status/{orderId}` - 주문 상태 조회
+- `GET /api/order/users/{userId}/orders` - 사용자 주문 목록 조회
+- `POST /api/order/orders/{orderId}/cancel` - 주문 취소
 - `POST /api/order/orders/{orderId}/receive` - 주문 수령 등록
-- `PATCH /api/order/orders/{orderId}` - 주문 상태 변경
-- `DELETE /api/order/orders/{orderId}` - 주문 취소
+- `PATCH /api/order/orders/{orderId}` - 주문 상태 변경 (관리자용)
 
-### 💳 결제 관련
+### 💳 결제 관련 (Payment)
 - `GET /api/order/payment/config` - 결제 설정 조회
 - `POST /api/order/payment/orders/{orderId}/prepare` - 결제 준비
 - `GET /api/order/payment/{paymentId}/status` - 결제 상태 조회
 
-### 📱 QR 코드
-- `GET /api/order/qr/orders/{orderId}` - QR 코드 URL/Base64 조회
-
-### 🏪 매장 관리
-- `GET /api/order/stores` - 매장 목록 조회
-- `GET /api/order/stores/{storeId}` - 매장 상세 조회
-- `POST /api/order/stores` - 매장 생성
-- `GET /api/order/stores/{storeId}/orders` - 매장별 주문 목록
-
-### 🛍️ 상품 관리
-- `GET /api/order/stores/{storeId}/products` - 상품 목록 조회
-- `GET /api/order/products/{productId}` - 상품 상세 조회
-- `POST /api/order/stores/{storeId}/products` - 상품 생성
-
-### 📊 통계
-- `GET /api/order/stores/{storeId}/statistics` - 매장 통계 조회
-- `GET /api/order/stores/{storeId}/sales/daily` - 일별 매출 조회
-
-### 👤 사용자 관리
-- `GET /api/user/users/{userId}/profile` - 사용자 프로필 조회
-- `PUT /api/user/users/{userId}/profile` - 사용자 프로필 수정
-
-### 🔔 알림
-- `GET /api/order/users/{userId}/notifications` - 알림 목록 조회
-- `PATCH /api/order/notifications/{notificationId}/read` - 알림 읽음 처리
-
-### ⭐ 리뷰
-- `GET /api/order/products/{productId}/reviews` - 상품 리뷰 목록 조회
-- `POST /api/order/orders/{orderId}/review` - 리뷰 작성
-
-### 🎫 쿠폰
-- `GET /api/order/users/{userId}/coupons` - 사용자 쿠폰 목록 조회
-- `POST /api/order/coupons/{couponId}/use` - 쿠폰 사용
+### 📱 QR 코드 (QR Code)
+- `GET /api/order/qr/orders/{orderId}` - 주문 QR 코드 생성 (PNG 이미지)
+- `GET /api/order/qr/payment/{merchantUid}` - 결제 QR 코드 생성 (PNG 이미지)
 
 ## 🔐 백엔드 API 상세 레퍼런스
 
