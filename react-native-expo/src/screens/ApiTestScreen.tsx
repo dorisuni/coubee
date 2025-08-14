@@ -219,17 +219,28 @@ const ApiTestScreen: React.FC<ApiTestScreenProps> = ({ onGoBack }) => {
       <Modal
         visible={showResponseModal}
         transparent={true}
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowResponseModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <ApiResponseViewer
-              responseData={responseData}
-              apiName={currentAPI?.name || 'API'}
-              isVisible={showResponseModal}
-              onClose={() => setShowResponseModal(false)}
-            />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>API 응답</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowResponseModal(false)}
+              >
+                <Text style={styles.closeButtonText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              <ApiResponseViewer 
+                responseData={responseData} 
+                apiName={currentAPI?.name || 'API'}
+                isVisible={showResponseModal}
+                onClose={() => setShowResponseModal(false)}
+              />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -364,12 +375,45 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 16,
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 15,
-    width: '90%',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalHeader: {
+    backgroundColor: '#007bff',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalBody: {
+    padding: 20,
     maxHeight: '80%',
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 24,
+    lineHeight: 24,
   },
 });
 
