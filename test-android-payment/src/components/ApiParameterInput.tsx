@@ -99,72 +99,72 @@ const ApiParameterInput: React.FC<ApiParameterInputProps> = ({
 
   return (
     <Modal
-      visible={표시여부}
+      visible={isVisible}
       transparent={true}
       animationType="slide"
-      onRequestClose={취소버튼클릭}
+      onRequestClose={handleCancelClick}
     >
-      <View style={스타일.모달오버레이}>
-        <View style={스타일.모달내용}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
           {/* 헤더 */}
-          <View style={스타일.헤더}>
-            <Text style={스타일.제목}>📝 매개변수 입력</Text>
-            <Text style={스타일.부제목}>{API이름}</Text>
+          <View style={styles.header}>
+            <Text style={styles.title}>📝 매개변수 입력</Text>
+            <Text style={styles.subtitle}>{apiName}</Text>
           </View>
 
           {/* 매개변수 입력 폼 */}
-          <ScrollView style={스타일.폼스크롤뷰} showsVerticalScrollIndicator={false}>
-            {매개변수목록.map((매개변수, 인덱스) => (
-              <View key={인덱스} style={스타일.매개변수그룹}>
-                <View style={스타일.라벨행}>
-                  <Text style={스타일.매개변수라벨}>
-                    {매개변수.이름}
-                    {매개변수.필수여부 && <Text style={스타일.필수표시}> *</Text>}
+          <ScrollView style={styles.formScrollView} showsVerticalScrollIndicator={false}>
+            {parameterList.map((parameter, index) => (
+              <View key={index} style={styles.parameterGroup}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.parameterLabel}>
+                    {parameter.name}
+                    {parameter.required && <Text style={styles.requiredMark}> *</Text>}
                   </Text>
-                  <Text style={스타일.타입표시}>({매개변수.타입})</Text>
+                  <Text style={styles.typeIndicator}>({parameter.type})</Text>
                 </View>
 
-                {매개변수.설명 && (
-                  <Text style={스타일.설명텍스트}>{매개변수.설명}</Text>
+                {parameter.description && (
+                  <Text style={styles.descriptionText}>{parameter.description}</Text>
                 )}
 
-                <View style={스타일.입력행}>
+                <View style={styles.inputRow}>
                   <TextInput
                     style={[
-                      스타일.입력필드,
-                      매개변수.필수여부 && !매개변수값들[매개변수.이름] && 스타일.필수입력필드
+                      styles.inputField,
+                      parameter.required && !parameterValues[parameter.name] && styles.requiredInputField
                     ]}
-                    value={매개변수값들[매개변수.이름] || ''}
-                    onChangeText={(값) => 매개변수값변경(매개변수.이름, 값)}
-                    placeholder={매개변수.기본값 ? `기본값: ${매개변수.기본값}` : `${매개변수.이름} 입력`}
+                    value={parameterValues[parameter.name] || ''}
+                    onChangeText={(value) => handleParameterChange(parameter.name, value)}
+                    placeholder={parameter.defaultValue ? `기본값: ${parameter.defaultValue}` : `${parameter.name} 입력`}
                     placeholderTextColor="#6c757d"
-                    {...타입별입력속성(매개변수.타입)}
+                    {...getInputPropertiesByType(parameter.type)}
                   />
-                  
-                  {매개변수.예시 && (
+
+                  {parameter.example && (
                     <TouchableOpacity
-                      onPress={() => 예시값적용(매개변수)}
-                      style={스타일.예시버튼}
+                      onPress={() => applyExampleValue(parameter)}
+                      style={styles.exampleButton}
                     >
-                      <Text style={스타일.예시버튼텍스트}>예시</Text>
+                      <Text style={styles.exampleButtonText}>예시</Text>
                     </TouchableOpacity>
                   )}
                 </View>
 
-                {매개변수.예시 && (
-                  <Text style={스타일.예시텍스트}>예시: {매개변수.예시}</Text>
+                {parameter.example && (
+                  <Text style={styles.exampleText}>예시: {parameter.example}</Text>
                 )}
               </View>
             ))}
           </ScrollView>
 
           {/* 액션 버튼들 */}
-          <View style={스타일.액션섹션}>
-            <TouchableOpacity onPress={취소버튼클릭} style={스타일.취소버튼}>
-              <Text style={스타일.취소버튼텍스트}>취소</Text>
+          <View style={styles.actionSection}>
+            <TouchableOpacity onPress={handleCancelClick} style={styles.cancelButton}>
+              <Text style={styles.cancelButtonText}>취소</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={확인버튼클릭} style={스타일.확인버튼}>
-              <Text style={스타일.확인버튼텍스트}>🚀 API 호출</Text>
+            <TouchableOpacity onPress={handleConfirmClick} style={styles.confirmButton}>
+              <Text style={styles.confirmButtonText}>🚀 API 호출</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -173,75 +173,75 @@ const ApiParameterInput: React.FC<ApiParameterInputProps> = ({
   );
 };
 
-const 스타일 = StyleSheet.create({
-  모달오버레이: {
+const styles = StyleSheet.create({
+  modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  모달내용: {
+  modalContent: {
     backgroundColor: '#fff',
     borderRadius: 15,
     width: '90%',
     maxHeight: '80%',
   },
-  헤더: {
+  header: {
     backgroundColor: '#007bff',
     borderTopLeftRadius: 15,
     borderTopRightRadius: 15,
     padding: 20,
     alignItems: 'center',
   },
-  제목: {
+  title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 4,
   },
-  부제목: {
+  subtitle: {
     fontSize: 14,
     color: '#fff',
     opacity: 0.9,
   },
-  폼스크롤뷰: {
+  formScrollView: {
     maxHeight: 400,
     padding: 20,
   },
-  매개변수그룹: {
+  parameterGroup: {
     marginBottom: 20,
   },
-  라벨행: {
+  labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
   },
-  매개변수라벨: {
+  parameterLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#212529',
   },
-  필수표시: {
+  requiredMark: {
     color: '#dc3545',
   },
-  타입표시: {
+  typeIndicator: {
     fontSize: 12,
     color: '#6c757d',
     fontStyle: 'italic',
   },
-  설명텍스트: {
+  descriptionText: {
     fontSize: 14,
     color: '#6c757d',
     marginBottom: 8,
     lineHeight: 20,
   },
-  입력행: {
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  입력필드: {
+  inputField: {
     flex: 1,
     borderWidth: 1,
     borderColor: '#e9ecef',
@@ -250,54 +250,54 @@ const 스타일 = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#fff',
   },
-  필수입력필드: {
+  requiredInputField: {
     borderColor: '#dc3545',
     borderWidth: 2,
   },
-  예시버튼: {
+  exampleButton: {
     backgroundColor: '#28a745',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
   },
-  예시버튼텍스트: {
+  exampleButtonText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
   },
-  예시텍스트: {
+  exampleText: {
     fontSize: 12,
     color: '#28a745',
     marginTop: 4,
     fontStyle: 'italic',
   },
-  액션섹션: {
+  actionSection: {
     flexDirection: 'row',
     padding: 20,
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: '#e9ecef',
   },
-  취소버튼: {
+  cancelButton: {
     flex: 1,
     backgroundColor: '#6c757d',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
-  취소버튼텍스트: {
+  cancelButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
-  확인버튼: {
+  confirmButton: {
     flex: 2,
     backgroundColor: '#007bff',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
-  확인버튼텍스트: {
+  confirmButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

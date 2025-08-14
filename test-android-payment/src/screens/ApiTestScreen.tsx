@@ -61,7 +61,7 @@ const ApiTestScreen: React.FC<ApiTestScreenProps> = ({ onGoBack }) => {
   // 카테고리별로 API 그룹화
   const apisByCategory = groupApisByCategory(filteredApiList);
 
-  const callAPI = async (api: API엔드포인트, parameters?: Record<string, string>) => {
+  const callAPI = async (api: ApiEndpoint, parameters?: Record<string, string>) => {
     setIsLoading(true);
     setResponseData(null);
 
@@ -111,7 +111,7 @@ const ApiTestScreen: React.FC<ApiTestScreenProps> = ({ onGoBack }) => {
     }
   };
 
-  const handleApiButtonClick = (api: API엔드포인트) => {
+  const handleApiButtonClick = (api: ApiEndpoint) => {
     setCurrentAPI(api);
     if (api.parameterList && api.parameterList.length > 0) {
       setShowParameterModal(true);
@@ -237,12 +237,12 @@ const ApiTestScreen: React.FC<ApiTestScreenProps> = ({ onGoBack }) => {
   );
 };
 
-const 스타일 = StyleSheet.create({
-  컨테이너: {
+const styles = StyleSheet.create({
+  container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  헤더: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -251,23 +251,23 @@ const 스타일 = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
-  뒤로가기버튼: {
+  backButton: {
     padding: 8,
   },
-  뒤로가기텍스트: {
+  backButtonText: {
     fontSize: 16,
     color: '#007bff',
     fontWeight: '600',
   },
-  제목: {
+  title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#495057',
   },
-  빈공간: {
+  spacer: {
     width: 60,
   },
-  검색섹션: {
+  searchSection: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
@@ -275,7 +275,7 @@ const 스타일 = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
-  검색입력: {
+  searchInput: {
     flex: 1,
     borderWidth: 1,
     borderColor: '#e9ecef',
@@ -284,43 +284,43 @@ const 스타일 = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#f8f9fa',
   },
-  검색지우기버튼: {
+  clearSearchButton: {
     marginLeft: 8,
     padding: 8,
     backgroundColor: '#6c757d',
     borderRadius: 6,
   },
-  검색지우기텍스트: {
+  clearSearchButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
   },
-  통계섹션: {
+  statsSection: {
     padding: 12,
     backgroundColor: '#f8f9fa',
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
-  통계텍스트: {
+  statsText: {
     fontSize: 12,
     color: '#6c757d',
     marginBottom: 2,
   },
-  스크롤뷰: {
+  scrollView: {
     flex: 1,
     padding: 16,
   },
-  카테고리섹션: {
+  categorySection: {
     marginBottom: 24,
   },
-  카테고리제목: {
+  categoryTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#495057',
     marginBottom: 12,
     paddingLeft: 4,
   },
-  API버튼: {
+  apiButton: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
@@ -337,35 +337,35 @@ const 스타일 = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  비활성화버튼: {
+  disabledButton: {
     opacity: 0.6,
   },
-  API버튼내용: {
+  apiButtonContent: {
     flex: 1,
   },
-  API이름: {
+  apiName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#212529',
     marginBottom: 4,
   },
-  API설명: {
+  apiDescription: {
     fontSize: 14,
     color: '#6c757d',
     marginBottom: 4,
   },
-  매개변수정보: {
+  parameterInfo: {
     fontSize: 12,
     color: '#007bff',
     fontStyle: 'italic',
   },
-  모달오버레이: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  모달내용: {
+  modalContent: {
     backgroundColor: '#fff',
     borderRadius: 15,
     width: '90%',

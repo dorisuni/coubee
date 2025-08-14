@@ -1,6 +1,4 @@
-3+8-3
-
-'import React from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -12,142 +10,142 @@ import {
 } from 'react-native';
 
 interface ApiResponseViewerProps {
-  응답데이터: any;
-  API이름: string;
-  표시여부: boolean;
-  닫기함수: () => void;
+  responseData: any;
+  apiName: string;
+  isVisible: boolean;
+  onClose: () => void;
 }
 
 const ApiResponseViewer: React.FC<ApiResponseViewerProps> = ({
-  응답데이터,
-  API이름,
-  표시여부,
-  닫기함수,
+  responseData,
+  apiName,
+  isVisible,
+  onClose,
 }) => {
-  if (!표시여부) return null;
+  if (!isVisible) return null;
 
-  const 응답공유 = async () => {
+  const shareResponse = async () => {
     try {
-      const 공유내용 = `🧪 ${API이름} API 응답 결과\n\n${JSON.stringify(응답데이터, null, 2)}`;
+      const shareContent = `🧪 ${apiName} API 응답 결과\n\n${JSON.stringify(responseData, null, 2)}`;
       await Share.share({
-        message: 공유내용,
-        title: `${API이름} API 테스트 결과`,
+        message: shareContent,
+        title: `${apiName} API 테스트 결과`,
       });
-    } catch (오류) {
+    } catch (error) {
       Alert.alert('공유 실패', '응답 데이터 공유에 실패했습니다.');
     }
   };
 
-  const 응답복사 = () => {
+  const copyResponse = () => {
     // React Native에서는 Clipboard API 사용 필요
     Alert.alert('복사 완료', 'JSON 응답이 클립보드에 복사되었습니다.');
   };
 
-  const 응답상태확인 = () => {
-    if (응답데이터?.오류) {
+  const checkResponseStatus = () => {
+    if (responseData?.error) {
       return {
-        상태: '오류',
-        색상: '#dc3545',
-        아이콘: '❌',
-        메시지: 응답데이터.메시지 || '알 수 없는 오류가 발생했습니다.'
+        status: '오류',
+        color: '#dc3545',
+        icon: '❌',
+        message: responseData.message || '알 수 없는 오류가 발생했습니다.'
       };
-    } else if (응답데이터?.data || 응답데이터?.message === 'success') {
+    } else if (responseData?.data || responseData?.message === 'success') {
       return {
-        상태: '성공',
-        색상: '#28a745',
-        아이콘: '✅',
-        메시지: 'API 호출이 성공했습니다.'
+        status: '성공',
+        color: '#28a745',
+        icon: '✅',
+        message: 'API 호출이 성공했습니다.'
       };
     } else {
       return {
-        상태: '알 수 없음',
-        색상: '#ffc107',
-        아이콘: '⚠️',
-        메시지: '응답 상태를 확인할 수 없습니다.'
+        status: '알 수 없음',
+        color: '#ffc107',
+        icon: '⚠️',
+        message: '응답 상태를 확인할 수 없습니다.'
       };
     }
   };
 
-  const 상태정보 = 응답상태확인();
+  const statusInfo = checkResponseStatus();
 
-  const JSON포맷팅 = (데이터: any): string => {
+  const formatJSON = (data: any): string => {
     try {
-      return JSON.stringify(데이터, null, 2);
-    } catch (오류) {
+      return JSON.stringify(data, null, 2);
+    } catch (error) {
       return '응답 데이터를 표시할 수 없습니다.';
     }
   };
 
-  const 응답크기계산 = (): string => {
-    const JSON문자열 = JSON포맷팅(응답데이터);
-    const 바이트크기 = new Blob([JSON문자열]).size;
-    
-    if (바이트크기 < 1024) {
-      return `${바이트크기} bytes`;
-    } else if (바이트크기 < 1024 * 1024) {
-      return `${(바이트크기 / 1024).toFixed(1)} KB`;
+  const calculateResponseSize = (): string => {
+    const jsonString = formatJSON(responseData);
+    const byteSize = new Blob([jsonString]).size;
+
+    if (byteSize < 1024) {
+      return `${byteSize} bytes`;
+    } else if (byteSize < 1024 * 1024) {
+      return `${(byteSize / 1024).toFixed(1)} KB`;
     } else {
-      return `${(바이트크기 / (1024 * 1024)).toFixed(1)} MB`;
+      return `${(byteSize / (1024 * 1024)).toFixed(1)} MB`;
     }
   };
 
   return (
-    <View style={스타일.컨테이너}>
+    <View style={styles.container}>
       {/* 헤더 */}
-      <View style={[스타일.헤더, { backgroundColor: 상태정보.색상 }]}>
-        <View style={스타일.헤더왼쪽}>
-          <Text style={스타일.상태아이콘}>{상태정보.아이콘}</Text>
+      <View style={[styles.header, { backgroundColor: statusInfo.color }]}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.statusIcon}>{statusInfo.icon}</Text>
           <View>
-            <Text style={스타일.API이름}>{API이름}</Text>
-            <Text style={스타일.상태메시지}>{상태정보.메시지}</Text>
+            <Text style={styles.apiName}>{apiName}</Text>
+            <Text style={styles.statusMessage}>{statusInfo.message}</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={닫기함수} style={스타일.닫기버튼}>
-          <Text style={스타일.닫기텍스트}>✕</Text>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <Text style={styles.closeText}>✕</Text>
         </TouchableOpacity>
       </View>
 
       {/* 응답 정보 */}
-      <View style={스타일.정보섹션}>
-        <View style={스타일.정보행}>
-          <Text style={스타일.정보라벨}>📊 응답 크기:</Text>
-          <Text style={스타일.정보값}>{응답크기계산()}</Text>
+      <View style={styles.infoSection}>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>📊 응답 크기:</Text>
+          <Text style={styles.infoValue}>{calculateResponseSize()}</Text>
         </View>
-        
-        {응답데이터?.상태코드 && (
-          <View style={스타일.정보행}>
-            <Text style={스타일.정보라벨}>🔢 상태 코드:</Text>
+
+        {responseData?.statusCode && (
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>🔢 상태 코드:</Text>
             <Text style={[
-              스타일.정보값,
-              { color: 응답데이터.상태코드 >= 400 ? '#dc3545' : '#28a745' }
+              styles.infoValue,
+              { color: responseData.statusCode >= 400 ? '#dc3545' : '#28a745' }
             ]}>
-              {응답데이터.상태코드}
+              {responseData.statusCode}
             </Text>
           </View>
         )}
-        
-        <View style={스타일.정보행}>
-          <Text style={스타일.정보라벨}>⏰ 응답 시간:</Text>
-          <Text style={스타일.정보값}>{new Date().toLocaleTimeString('ko-KR')}</Text>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>⏰ 응답 시간:</Text>
+          <Text style={styles.infoValue}>{new Date().toLocaleTimeString('ko-KR')}</Text>
         </View>
       </View>
 
       {/* 액션 버튼들 */}
-      <View style={스타일.액션섹션}>
-        <TouchableOpacity onPress={응답공유} style={스타일.액션버튼}>
-          <Text style={스타일.액션버튼텍스트}>📤 공유</Text>
+      <View style={styles.actionSection}>
+        <TouchableOpacity onPress={shareResponse} style={styles.actionButton}>
+          <Text style={styles.actionButtonText}>📤 공유</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={응답복사} style={스타일.액션버튼}>
-          <Text style={스타일.액션버튼텍스트}>📋 복사</Text>
+        <TouchableOpacity onPress={copyResponse} style={styles.actionButton}>
+          <Text style={styles.actionButtonText}>📋 복사</Text>
         </TouchableOpacity>
       </View>
 
       {/* JSON 응답 */}
-      <View style={스타일.응답섹션}>
-        <Text style={스타일.응답제목}>📄 JSON 응답</Text>
-        <ScrollView style={스타일.응답스크롤뷰} showsVerticalScrollIndicator={true}>
-          <Text style={스타일.응답텍스트}>
-            {JSON포맷팅(응답데이터)}
+      <View style={styles.responseSection}>
+        <Text style={styles.responseTitle}>📄 JSON 응답</Text>
+        <ScrollView style={styles.responseScrollView} showsVerticalScrollIndicator={true}>
+          <Text style={styles.responseText}>
+            {formatJSON(responseData)}
           </Text>
         </ScrollView>
       </View>
@@ -155,75 +153,75 @@ const ApiResponseViewer: React.FC<ApiResponseViewerProps> = ({
   );
 };
 
-const 스타일 = StyleSheet.create({
-  컨테이너: {
+const styles = StyleSheet.create({
+  container: {
     flex: 1,
     backgroundColor: '#fff',
   },
-  헤더: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
   },
-  헤더왼쪽: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  상태아이콘: {
+  statusIcon: {
     fontSize: 24,
     marginRight: 12,
   },
-  API이름: {
+  apiName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 2,
   },
-  상태메시지: {
+  statusMessage: {
     fontSize: 14,
     color: '#fff',
     opacity: 0.9,
   },
-  닫기버튼: {
+  closeButton: {
     padding: 8,
   },
-  닫기텍스트: {
+  closeText: {
     fontSize: 20,
     color: '#fff',
     fontWeight: 'bold',
   },
-  정보섹션: {
+  infoSection: {
     backgroundColor: '#f8f9fa',
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
-  정보행: {
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  정보라벨: {
+  infoLabel: {
     fontSize: 14,
     color: '#495057',
     fontWeight: '600',
   },
-  정보값: {
+  infoValue: {
     fontSize: 14,
     color: '#212529',
     fontWeight: '500',
   },
-  액션섹션: {
+  actionSection: {
     flexDirection: 'row',
     padding: 16,
     gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
-  액션버튼: {
+  actionButton: {
     backgroundColor: '#007bff',
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -231,22 +229,22 @@ const 스타일 = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  액션버튼텍스트: {
+  actionButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },
-  응답섹션: {
+  responseSection: {
     flex: 1,
     padding: 16,
   },
-  응답제목: {
+  responseTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#495057',
     marginBottom: 12,
   },
-  응답스크롤뷰: {
+  responseScrollView: {
     flex: 1,
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
@@ -254,7 +252,7 @@ const 스타일 = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e9ecef',
   },
-  응답텍스트: {
+  responseText: {
     fontSize: 12,
     fontFamily: 'monospace',
     color: '#495057',
