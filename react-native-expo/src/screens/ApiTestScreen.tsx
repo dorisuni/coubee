@@ -14,6 +14,7 @@ import {
 import { tokenManager } from '../api/client';
 import ApiResponseViewer from '../components/ApiResponseViewer';
 import ApiParameterInput from '../components/ApiParameterInput';
+import OrderStatusUpdateModal from '../components/OrderStatusUpdateModal';
 import { getAllApiList, groupApisByCategory, searchApis, ApiEndpoint, ParameterInfo } from '../config/apiEndpoints';
 
 interface ApiTestScreenProps {
@@ -27,6 +28,7 @@ const ApiTestScreen: React.FC<ApiTestScreenProps> = ({ onGoBack }) => {
   const [responseData, setResponseData] = useState<any>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [showParameterModal, setShowParameterModal] = useState(false);
+  const [showOrderStatusModal, setShowOrderStatusModal] = useState(false);
   const [currentAPI, setCurrentAPI] = useState<ApiEndpoint | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,7 +115,9 @@ const ApiTestScreen: React.FC<ApiTestScreenProps> = ({ onGoBack }) => {
 
   const handleApiButtonClick = (api: ApiEndpoint) => {
     setCurrentAPI(api);
-    if (api.parameterList && api.parameterList.length > 0) {
+    if (api.customComponent === 'OrderStatusUpdateModal') {
+      setShowOrderStatusModal(true);
+    } else if (api.parameterList && api.parameterList.length > 0) {
       setShowParameterModal(true);
     } else {
       callAPI(api);
@@ -130,6 +134,13 @@ const ApiTestScreen: React.FC<ApiTestScreenProps> = ({ onGoBack }) => {
   const handleParameterInputCancel = () => {
     setShowParameterModal(false);
     setCurrentAPI(null);
+  };
+
+  const handleOrderStatusUpdateComplete = (orderId: string, newStatus: string) => {
+    setShowOrderStatusModal(false);
+    if (currentAPI) {
+      callAPI(currentAPI, { orderId, status: newStatus });
+    }
   };
 
   return (
@@ -189,6 +200,10 @@ const ApiTestScreen: React.FC<ApiTestScreenProps> = ({ onGoBack }) => {
                 <View style={styles.apiButtonContent}>
                   <Text style={styles.apiName}>{api.name}</Text>
                   <Text style={styles.apiDescription}>{api.description}</Text>
+                  <View style={styles.endpointInfoContainer}>
+                    <Text style={[styles.httpMethod, styles[`httpMethod${api.httpMethod}` as any]]}>{api.httpMethod}</Text>
+                    <Text style={styles.endpointUrl}>{api.endpointUrl}</Text>
+                  </View>
                   {api.parameterList && api.parameterList.length > 0 && (
                     <Text style={styles.parameterInfo}>
                       📝 매개변수 {api.parameterList.length}개 필요
@@ -212,6 +227,18 @@ const ApiTestScreen: React.FC<ApiTestScreenProps> = ({ onGoBack }) => {
           parameterList={currentAPI.parameterList || []}
           onConfirm={handleParameterInputComplete}
           onCancel={handleParameterInputCancel}
+        />
+      )}
+
+      {/* 주문 상태 변경 전용 모달 */}
+      {currentAPI?.customComponent === 'OrderStatusUpdateModal' && (
+        <OrderStatusUpdateModal
+          isVisible={showOrderStatusModal}
+          onClose={() => {
+            setShowOrderStatusModal(false);
+            setCurrentAPI(null);
+          }}
+          onConfirm={handleOrderStatusUpdateComplete}
         />
       )}
 
@@ -365,10 +392,50 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     marginBottom: 4,
   },
+  endpointInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e9ecef',
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  httpMethod: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#fff',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  httpMethodGET: {
+    backgroundColor: '#28a745', // Green
+  },
+  httpMethodPOST: {
+    backgroundColor: '#007bff', // Blue
+  },
+  httpMethodPUT: {
+    backgroundColor: '#fd7e14', // Orange
+  },
+  httpMethodPATCH: {
+    backgroundColor: '#ffc107', // Yellow
+  },
+  httpMethodDELETE: {
+    backgroundColor: '#dc3545', // Red
+  },
+  endpointUrl: {
+    fontSize: 12,
+    color: '#495057',
+    flexShrink: 1,
+  },
   parameterInfo: {
     fontSize: 12,
-    color: '#007bff',
+    color: '#17a2b8',
     fontStyle: 'italic',
+    marginTop: 8,
   },
   modalOverlay: {
     flex: 1,

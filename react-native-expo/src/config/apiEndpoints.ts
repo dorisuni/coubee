@@ -93,11 +93,12 @@ export const getAllApiList = (userId: number): ApiEndpoint[] => [
   },
   {
     name: '주문 취소',
-    description: '특정 주문을 취소합니다.',
+    description: '특정 주문을 취소합니다. 취소 사유가 필요합니다.',
     category: '📦 주문 관리',
-    func: (params) => additionalAPI.cancelOrder(params?.orderId || ''),
+    func: (params) => orderAPI.cancelOrder(params?.orderId || '', params?.cancelReason || '단순 변심'),
     parameterList: [
       { name: 'orderId', type: '문자열', required: true, description: '취소할 주문 ID' },
+      { name: 'cancelReason', type: '문자열', required: true, defaultValue: '단순 변심', description: '주문 취소 사유' },
     ],
     httpMethod: 'POST',
     endpointUrl: '/api/order/orders/{orderId}/cancel'
@@ -115,15 +116,15 @@ export const getAllApiList = (userId: number): ApiEndpoint[] => [
   },
   {
     name: '주문 상태 변경 (관리자)',
-    description: '주문의 상태를 강제로 변경합니다. (관리자용)',
+    description: '주문의 상태를 단계별로 변경합니다. (관리자용)',
     category: '📦 주문 관리',
-    func: (params) => orderAPI.updateOrderStatus(params?.orderId || '', params?.status || 'PAID'),
+    func: (params) => orderAPI.updateOrderStatus(params?.orderId || '', params?.status || ''),
     parameterList: [
       { name: 'orderId', type: '문자열', required: true, description: '상태 변경할 주문 ID' },
-      { name: 'status', type: '문자열', required: true, defaultValue: 'PAID', description: '변경할 상태 (e.g., PAID, DELIVERING, COMPLETED)' },
     ],
     httpMethod: 'PATCH',
-    endpointUrl: '/api/order/orders/{orderId}'
+    endpointUrl: '/api/order/orders/{orderId}',
+    customComponent: 'OrderStatusUpdateModal', // 전용 컴포넌트 사용을 위한 식별자
   },
 
   // 💳 결제 관련 API

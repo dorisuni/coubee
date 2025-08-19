@@ -205,7 +205,13 @@ export const orderAPI = {
 
   // 주문 상태 조회
   async getOrderStatus(orderId: string): Promise<ApiResponse<any>> {
-    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/orders/${orderId}/status`);
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/orders/status/${orderId}`);
+    return response.data;
+  },
+
+  // 주문 취소
+  async cancelOrder(orderId: string, reason: string): Promise<ApiResponse<any>> {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.post(`/api/order/orders/${orderId}/cancel`, { cancelReason: reason });
     return response.data;
   }
 };
