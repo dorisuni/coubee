@@ -185,9 +185,9 @@ export const orderAPI = {
     return response.data;
   },
 
-  // 사용자 주문 목록 조회
-  async getUserOrders(userId: number, page: number = 0, size: number = 10): Promise<ApiResponse<any>> {
-    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/users/${userId}/orders?page=${page}&size=${size}`);
+  // 내 주문 목록 조회
+  async getUserOrders(page: number = 0, size: number = 10): Promise<ApiResponse<any>> {
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(`/api/order/users/me/orders?page=${page}&size=${size}`);
     return response.data;
   },
 
