@@ -76,8 +76,8 @@ export const getAllApiList = (userId: number): ApiEndpoint[] => [
     endpointUrl: '/api/order/orders/status/{orderId}'
   },
   {
-    name: '사용자 주문 목록 조회',
-    description: '현재 사용자의 주문 목록을 페이지네이션으로 조회합니다',
+    name: '내 주문 목록 상세 조회',
+    description: '인증된 사용자의 주문 목록을 페이지네이션으로 상세 조회합니다',
     category: '📦 주문 관리',
     func: (parameters) => {
       const page = parseInt(parameters?.page || '0');
@@ -89,7 +89,7 @@ export const getAllApiList = (userId: number): ApiEndpoint[] => [
       { name: 'size', type: '숫자', required: false, defaultValue: '10' }
     ],
     httpMethod: 'GET',
-    endpointUrl: `/api/order/users/${userId}/orders`
+    endpointUrl: '/api/order/users/me/orders'
   },
   {
     name: '주문 취소',
