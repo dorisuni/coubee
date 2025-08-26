@@ -82,7 +82,7 @@ export const getAllApiList = (userId: number): ApiEndpoint[] => [
     func: (parameters) => {
       const page = parseInt(parameters?.page || '0');
       const size = parseInt(parameters?.size || '10');
-      return orderAPI.getUserOrders(userId, page, size);
+      return orderAPI.getUserOrders(page, size);
     },
     parameterList: [
       { name: 'page', type: '숫자', required: false, defaultValue: '0' },
