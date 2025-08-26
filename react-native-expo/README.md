@@ -114,7 +114,7 @@ src/
 - `POST /api/order/orders` - 주문 생성
 - `GET /api/order/orders/{orderId}` - 주문 상세 조회
 - `GET /api/order/orders/status/{orderId}` - 주문 상태 조회
-- `GET /api/order/users/{userId}/orders` - 사용자 주문 목록 조회
+- `GET /api/order/users/me/orders` - 내 주문 목록 상세 조회 (인증 기반)
 - `POST /api/order/orders/{orderId}/cancel` - 주문 취소
 - `POST /api/order/orders/{orderId}/receive` - 주문 수령 등록
 - `PATCH /api/order/orders/{orderId}` - 주문 상태 변경 (관리자용)
