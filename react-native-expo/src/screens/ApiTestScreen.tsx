@@ -201,7 +201,7 @@ const ApiTestScreen: React.FC<ApiTestScreenProps> = ({ onGoBack }) => {
                   <Text style={styles.apiName}>{api.name}</Text>
                   <Text style={styles.apiDescription}>{api.description}</Text>
                   <View style={styles.endpointInfoContainer}>
-                    <Text style={[styles.httpMethod, styles[`httpMethod${api.httpMethod}` as any]]}>{api.httpMethod}</Text>
+                    <Text style={[styles.httpMethod, api.httpMethod && (styles as any)[`httpMethod${api.httpMethod}`]]}>{api.httpMethod}</Text>
                     <Text style={styles.endpointUrl}>{api.endpointUrl}</Text>
                   </View>
                   {api.parameterList && api.parameterList.length > 0 && (

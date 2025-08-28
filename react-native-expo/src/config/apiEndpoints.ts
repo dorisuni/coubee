@@ -1,4 +1,4 @@
-import { authAPI, orderAPI, paymentAPI, qrAPI, additionalAPI } from '../api/client';
+import { authAPI, orderAPI, paymentAPI, qrAPI, additionalAPI, statisticsAPI } from '../api/client';
 
 export interface ParameterInfo {
   name: string;
@@ -17,6 +17,7 @@ export interface ApiEndpoint {
   parameterList?: ParameterInfo[];
   httpMethod?: string;
   endpointUrl?: string;
+  customComponent?: string;
 }
 
 // 전체 API 엔드포인트 목록 (coubee-be-order 백엔드의 모든 엔드포인트)
@@ -34,21 +35,19 @@ export const getAllApiList = (userId: number): ApiEndpoint[] => [
   // 📦 주문 관리 API
   {
     name: '주문 생성',
-    description: '새로운 주문을 생성합니다.',
+    description: '새로운 주문을 생성합니다. 총액은 백엔드에서 자동 계산됩니다.',
     category: '📦 주문 관리',
     func: (params) => orderAPI.createOrder({
       storeId: parseInt(params?.storeId || '1'),
       recipientName: params?.recipientName || '테스트',
-      paymentMethod: params?.paymentMethod || 'CARD',
-      totalAmount: parseInt(params?.totalAmount || '1000'),
-      items: JSON.parse(params?.items || '[{"productId":1,"name":"상품","quantity":1,"price":1000}]'),
+      paymentMethod: params?.paymentMethod || 'card',
+      items: JSON.parse(params?.items || '[{"productId":1,"quantity":1}]'),
     }),
     parameterList: [
-      { name: 'storeId', type: '숫자', required: true, defaultValue: '1' },
-      { name: 'recipientName', type: '문자열', required: true, defaultValue: '홍길동' },
-      { name: 'paymentMethod', type: '문자열', required: true, defaultValue: 'CARD' },
-      { name: 'totalAmount', type: '숫자', required: true, defaultValue: '1000' },
-      { name: 'items', type: 'JSON', required: true, defaultValue: '[{"productId":1,"name":"상품","quantity":1,"price":1000}]' },
+      { name: 'storeId', type: '숫자', required: true, defaultValue: '1', description: '매장 ID' },
+      { name: 'recipientName', type: '문자열', required: true, defaultValue: '홍길동', description: '수령인 이름' },
+      { name: 'paymentMethod', type: '문자열', required: true, defaultValue: 'card', description: '결제 방법' },
+      { name: 'items', type: 'JSON', required: true, defaultValue: '[{"productId":1,"quantity":1}]', description: '주문 상품 목록 (productId, quantity만 필요)' },
     ],
     httpMethod: 'POST',
     endpointUrl: '/api/order/orders'
@@ -188,6 +187,76 @@ export const getAllApiList = (userId: number): ApiEndpoint[] => [
     ],
     httpMethod: 'GET',
     endpointUrl: '/api/order/qr/payment/{merchantUid}'
+  },
+
+  // 📊 통계 관리 API (관리자 전용)
+  {
+    name: '일일 매출 통계 조회',
+    description: '특정 날짜의 일일 매출 통계를 조회합니다 (관리자 전용)',
+    category: '📊 통계 관리',
+    func: (params) => statisticsAPI.getDailyStatistics(
+      params?.date || new Date().toISOString().split('T')[0],
+      params?.storeId ? parseInt(params.storeId) : undefined
+    ),
+    parameterList: [
+      { name: 'date', type: '문자열', required: true, defaultValue: new Date().toISOString().split('T')[0], description: '조회할 날짜 (YYYY-MM-DD)', example: '2023-06-01' },
+      { name: 'storeId', type: '숫자', required: false, description: '매장 ID (선택사항, 전체 통계는 비워두세요)', example: '1' },
+    ],
+    httpMethod: 'GET',
+    endpointUrl: '/api/order/reports/admin/sales/daily'
+  },
+  {
+    name: '주간 매출 통계 조회',
+    description: '특정 주의 주간 매출 통계를 조회합니다 (관리자 전용)',
+    category: '📊 통계 관리',
+    func: (params) => statisticsAPI.getWeeklyStatistics(
+      params?.weekStartDate || new Date().toISOString().split('T')[0],
+      params?.storeId ? parseInt(params.storeId) : undefined
+    ),
+    parameterList: [
+      { name: 'weekStartDate', type: '문자열', required: true, defaultValue: new Date().toISOString().split('T')[0], description: '주 시작 날짜 (YYYY-MM-DD)', example: '2023-05-29' },
+      { name: 'storeId', type: '숫자', required: false, description: '매장 ID (선택사항)', example: '1' },
+    ],
+    httpMethod: 'GET',
+    endpointUrl: '/api/order/reports/admin/sales/weekly'
+  },
+  {
+    name: '월간 매출 통계 조회',
+    description: '특정 월의 월간 매출 통계를 조회합니다 (관리자 전용)',
+    category: '📊 통계 관리',
+    func: (params) => statisticsAPI.getMonthlyStatistics(
+      parseInt(params?.year || new Date().getFullYear().toString()),
+      parseInt(params?.month || (new Date().getMonth() + 1).toString()),
+      params?.storeId ? parseInt(params.storeId) : undefined
+    ),
+    parameterList: [
+      { name: 'year', type: '숫자', required: true, defaultValue: new Date().getFullYear().toString(), description: '연도', example: '2023' },
+      { name: 'month', type: '숫자', required: true, defaultValue: (new Date().getMonth() + 1).toString(), description: '월 (1-12)', example: '6' },
+      { name: 'storeId', type: '숫자', required: false, description: '매장 ID (선택사항)', example: '1' },
+    ],
+    httpMethod: 'GET',
+    endpointUrl: '/api/order/reports/admin/sales/monthly'
+  },
+
+  // 🧪 테스트 API
+  {
+    name: '결제 완료 이벤트 테스트',
+    description: '결제 완료 알림 이벤트 발행을 테스트합니다',
+    category: '🧪 테스트',
+    func: (params) => {
+      const userId = parseInt(params?.userId || '1');
+      const storeId = parseInt(params?.storeId || '1');
+      return fetch(`${paymentAPI.getPaymentConfig().then(() => 'https://coubee-api.murkui.com')}/api/order/payment/test/payment-completed?userId=${userId}&storeId=${storeId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(res => res.json());
+    },
+    parameterList: [
+      { name: 'userId', type: '숫자', required: true, defaultValue: '1', description: '사용자 ID', example: '1' },
+      { name: 'storeId', type: '숫자', required: true, defaultValue: '1', description: '매장 ID', example: '1' },
+    ],
+    httpMethod: 'POST',
+    endpointUrl: '/api/order/payment/test/payment-completed'
   }
 ];
 

@@ -246,7 +246,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ onLogout }) => {
             paymentId: currentOrder.paymentId,
             orderName: currentOrder.orderName,
             totalAmount: currentOrder.amount,
-            currency: "KRW" as const,
+            currency: "KRW" as any,
             payMethod: getPortOnePayMethod(paymentMethod),
             customer: {
               fullName: currentOrder.buyerName,

@@ -1,10 +1,35 @@
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosResponse, AxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { encode, decode } from 'base-64';
 
 // API 기본 설정
 const BASE_URL = 'https://coubee-api.murkui.com';
-const TOKEN_KEY = 'accessToken';
+const ACCESS_TOKEN_KEY = 'accessToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
+
+// 토큰 새로고침 상태 관리
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: any) => void;
+  reject: (reason?: any) => void;
+  config: AxiosRequestConfig;
+}> = [];
+
+// 대기 중인 요청들을 처리하는 함수
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(({ resolve, reject, config }) => {
+    if (error) {
+      reject(error);
+    } else {
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      resolve(apiClient(config));
+    }
+  });
+
+  failedQueue = [];
+};
 
 // Axios 인스턴스 생성
 const apiClient: AxiosInstance = axios.create({
@@ -15,11 +40,68 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
+// 토큰 관리 함수들
+export const tokenManager = {
+  async saveTokens(accessToken: string, refreshToken: string): Promise<void> {
+    await Promise.all([
+      SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken),
+      SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken)
+    ]);
+  },
+
+  async getAccessToken(): Promise<string | null> {
+    return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  },
+
+  async getRefreshToken(): Promise<string | null> {
+    return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  },
+
+  async removeTokens(): Promise<void> {
+    await Promise.all([
+      SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
+      SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY)
+    ]);
+  },
+
+  async isLoggedIn(): Promise<boolean> {
+    const accessToken = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+    const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+    return !!(accessToken && refreshToken);
+  },
+
+  async getUserInfoFromToken(): Promise<{ userId: number } | null> {
+    const token = await this.getAccessToken();
+    if (!token) return null;
+    try {
+      const payloadBase64 = token.split('.')[1];
+      const payload = JSON.parse(decode(payloadBase64));
+      return { userId: payload.userId || payload.sub || payload.id };
+    } catch (e) {
+      console.error("토큰 디코딩 실패", e);
+      return null;
+    }
+  },
+
+  // 레거시 호환성을 위한 메서드들
+  async saveToken(token: string): Promise<void> {
+    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
+  },
+
+  async getToken(): Promise<string | null> {
+    return await this.getAccessToken();
+  },
+
+  async removeToken(): Promise<void> {
+    await this.removeTokens();
+  }
+};
+
 // 요청 인터셉터: 모든 요청에 인증 토큰 자동 포함
 apiClient.interceptors.request.use(
   async (config) => {
     try {
-      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      const token = await tokenManager.getAccessToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -33,50 +115,73 @@ apiClient.interceptors.request.use(
   }
 );
 
-// 응답 인터셉터: 에러 처리
+// 응답 인터셉터: 401 에러 시 자동 토큰 새로고침
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      // 토큰 만료 시 토큰 삭제
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // 이미 토큰 새로고침이 진행 중인 경우, 대기열에 추가
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject, config: originalRequest });
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshToken = await tokenManager.getRefreshToken();
+
+        if (!refreshToken) {
+          // 리프레시 토큰이 없으면 로그아웃 처리
+          await tokenManager.removeTokens();
+          processQueue(new Error('No refresh token available'), null);
+          return Promise.reject(error);
+        }
+
+        // 토큰 새로고침 요청
+        const refreshResponse = await axios.post(`${BASE_URL}/api/user/auth/refresh`, {
+          refreshToken: refreshToken
+        });
+
+        const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data.data.accessRefreshToken.access.token
+          ? {
+              accessToken: refreshResponse.data.data.accessRefreshToken.access.token,
+              refreshToken: refreshResponse.data.data.accessRefreshToken.refresh.token
+            }
+          : refreshResponse.data.data;
+
+        // 새 토큰들 저장
+        await tokenManager.saveTokens(accessToken, newRefreshToken);
+
+        // axios 기본 헤더 업데이트
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+
+        // 원래 요청에 새 토큰 적용
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+
+        // 대기 중인 요청들 처리
+        processQueue(null, accessToken);
+
+        // 원래 요청 재시도
+        return apiClient(originalRequest);
+
+      } catch (refreshError) {
+        // 토큰 새로고침 실패 시 모든 토큰 삭제
+        await tokenManager.removeTokens();
+        processQueue(refreshError, null);
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
+
     return Promise.reject(error);
   }
 );
-
-// 토큰 관리 함수들
-export const tokenManager = {
-  async saveToken(token: string): Promise<void> {
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
-  },
-
-  async getToken(): Promise<string | null> {
-    return await SecureStore.getItemAsync(TOKEN_KEY);
-  },
-
-  async removeToken(): Promise<void> {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-  },
-
-  async isLoggedIn(): Promise<boolean> {
-    const token = await SecureStore.getItemAsync(TOKEN_KEY);
-    return !!token;
-  },
-
-  async getUserInfoFromToken(): Promise<{ userId: number } | null> {
-    const token = await this.getToken();
-    if (!token) return null;
-    try {
-      const payloadBase64 = token.split('.')[1];
-      const payload = JSON.parse(decode(payloadBase64));
-      return { userId: payload.userId || payload.sub || payload.id };
-    } catch (e) {
-      console.error("토큰 디코딩 실패", e);
-      return null;
-    }
-  }
-};
 
 // API 응답 타입 정의
 interface ApiResponse<T> {
@@ -126,7 +231,6 @@ interface CreateOrderRequest {
   storeId: number;
   recipientName: string;
   paymentMethod: string;
-  totalAmount: number;
   items: OrderItem[];
 }
 
@@ -163,12 +267,24 @@ export const authAPI = {
   // 로그인
   async login(data: LoginRequest): Promise<ApiResponse<LoginResponse>> {
     const response: AxiosResponse<ApiResponse<LoginResponse>> = await apiClient.post('/api/user/auth/login', data);
+
+    // 로그인 성공 시 토큰들 저장
+    if (response.data.data?.accessRefreshToken) {
+      const { access, refresh } = response.data.data.accessRefreshToken;
+      await tokenManager.saveTokens(access.token, refresh.token);
+
+      // axios 기본 헤더에도 설정
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${access.token}`;
+    }
+
     return response.data;
   },
 
   // 로그아웃
   async logout(): Promise<void> {
-    await tokenManager.removeToken();
+    await tokenManager.removeTokens();
+    // axios 기본 헤더에서도 제거
+    delete apiClient.defaults.headers.common['Authorization'];
   }
 };
 
@@ -282,6 +398,33 @@ export const qrAPI = {
     } catch (error: any) {
       throw new Error(`결제 QR 코드 로드 실패: ${error.response?.status || error.message}`);
     }
+  }
+};
+
+// 통계 관련 API
+export const statisticsAPI = {
+  // 일일 통계 조회 (관리자 전용)
+  async getDailyStatistics(date: string, storeId?: number): Promise<ApiResponse<any>> {
+    let url = `/api/order/reports/admin/sales/daily?date=${date}`;
+    if (storeId) url += `&storeId=${storeId}`;
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(url);
+    return response.data;
+  },
+
+  // 주간 통계 조회 (관리자 전용)
+  async getWeeklyStatistics(weekStartDate: string, storeId?: number): Promise<ApiResponse<any>> {
+    let url = `/api/order/reports/admin/sales/weekly?weekStartDate=${weekStartDate}`;
+    if (storeId) url += `&storeId=${storeId}`;
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(url);
+    return response.data;
+  },
+
+  // 월간 통계 조회 (관리자 전용)
+  async getMonthlyStatistics(year: number, month: number, storeId?: number): Promise<ApiResponse<any>> {
+    let url = `/api/order/reports/admin/sales/monthly?year=${year}&month=${month}`;
+    if (storeId) url += `&storeId=${storeId}`;
+    const response: AxiosResponse<ApiResponse<any>> = await apiClient.get(url);
+    return response.data;
   }
 };
 

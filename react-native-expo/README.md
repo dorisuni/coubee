@@ -111,22 +111,49 @@ src/
 ## 🔧 지원하는 API 엔드포인트 목록
 
 ### 📦 주문 관리 (Order Management)
-- `POST /api/order/orders` - 주문 생성
-- `GET /api/order/orders/{orderId}` - 주문 상세 조회
-- `GET /api/order/orders/status/{orderId}` - 주문 상태 조회
-- `GET /api/order/users/me/orders` - 내 주문 목록 상세 조회 (인증 기반)
-- `POST /api/order/orders/{orderId}/cancel` - 주문 취소
-- `POST /api/order/orders/{orderId}/receive` - 주문 수령 등록
-- `PATCH /api/order/orders/{orderId}` - 주문 상태 변경 (관리자용)
+
+| Feature | HTTP Method | Endpoint | Required Permissions | Request / Parameters |
+|---------|-------------|----------|---------------------|---------------------|
+| Create Order | POST | `/api/order/orders` | JWT (User) | Headers: `X-Auth-UserId`<br>Body: `OrderCreateRequest` |
+| Get Order Details | GET | `/api/order/orders/{orderId}` | Public | Path: `orderId` |
+| Get Order Status | GET | `/api/order/orders/status/{orderId}` | Public | Path: `orderId` |
+| Get My Orders | GET | `/api/order/users/me/orders` | JWT (User) | Headers: `X-Auth-UserId`<br>Query: `page`, `size` |
+| Cancel Order | POST | `/api/order/orders/{orderId}/cancel` | JWT (User/Admin) | Headers: `X-Auth-UserId`, `X-Auth-Role`<br>Path: `orderId`<br>Body: `OrderCancelRequest` |
+| Receive Order | POST | `/api/order/orders/{orderId}/receive` | Public | Path: `orderId` |
+| Update Order Status | PATCH | `/api/order/orders/{orderId}` | JWT (Admin) | Headers: `X-Auth-UserId`, `X-Auth-Role`<br>Path: `orderId`<br>Body: `OrderStatusUpdateRequest` |
 
 ### 💳 결제 관련 (Payment)
-- `GET /api/order/payment/config` - 결제 설정 조회
-- `POST /api/order/payment/orders/{orderId}/prepare` - 결제 준비
-- `GET /api/order/payment/{paymentId}/status` - 결제 상태 조회
+
+| Feature | HTTP Method | Endpoint | Required Permissions | Request / Parameters |
+|---------|-------------|----------|---------------------|---------------------|
+| Get Payment Config | GET | `/api/order/payment/config` | JWT (User) | None |
+| Prepare Payment | POST | `/api/order/payment/orders/{orderId}/prepare` | Public | Path: `orderId`<br>Body: `PaymentReadyRequest` |
+| Get Payment Status | GET | `/api/order/payment/{paymentId}/status` | Public | Path: `paymentId` |
+| Test Payment Event | POST | `/api/order/payment/test/payment-completed` | Public | Query: `userId`, `storeId` |
 
 ### 📱 QR 코드 (QR Code)
-- `GET /api/order/qr/orders/{orderId}` - 주문 QR 코드 생성 (PNG 이미지)
-- `GET /api/order/qr/payment/{merchantUid}` - 결제 QR 코드 생성 (PNG 이미지)
+
+| Feature | HTTP Method | Endpoint | Required Permissions | Request / Parameters |
+|---------|-------------|----------|---------------------|---------------------|
+| Generate Order QR | GET | `/api/order/qr/orders/{orderId}` | Public | Path: `orderId`<br>Query: `size` (default: 200) |
+| Generate Payment QR | GET | `/api/order/qr/payment/{merchantUid}` | Public | Path: `merchantUid`<br>Query: `size` (default: 200) |
+
+### 📊 통계 관리 (Statistics - Admin Only)
+
+| Feature | HTTP Method | Endpoint | Required Permissions | Request / Parameters |
+|---------|-------------|----------|---------------------|---------------------|
+| Daily Sales Statistics | GET | `/api/order/reports/admin/sales/daily` | JWT (Admin) | Headers: `X-Auth-Role`<br>Query: `date`, `storeId` (optional) |
+| Weekly Sales Statistics | GET | `/api/order/reports/admin/sales/weekly` | JWT (Admin) | Headers: `X-Auth-Role`<br>Query: `weekStartDate`, `storeId` (optional) |
+| Monthly Sales Statistics | GET | `/api/order/reports/admin/sales/monthly` | JWT (Admin) | Headers: `X-Auth-Role`<br>Query: `year`, `month`, `storeId` (optional) |
+
+### 🔐 인증 관련 (Authentication)
+
+| Feature | HTTP Method | Endpoint | Required Permissions | Request / Parameters |
+|---------|-------------|----------|---------------------|---------------------|
+| User Login | POST | `/api/user/auth/login` | Public | Body: `LoginRequest` |
+| User Registration | POST | `/api/user/auth/signup` | Public | Body: `RegisterRequest` |
+| Token Refresh | POST | `/api/user/auth/refresh` | Public | Body: `refreshToken` |
+| User Logout | POST | `/api/user/auth/logout` | JWT (User) | None |
 
 ## 🔐 백엔드 API 상세 레퍼런스
 
@@ -135,22 +162,24 @@ src/
 ### 🔑 인증
 모든 API 요청은 JWT 토큰 인증이 필요합니다. (`Authorization: Bearer {JWT_TOKEN}`)
 
-### 📝 주문 관리 API 예시
+### 📝 주요 API 사용 예시
 
-#### 1. 주문 생성
+#### 1. 주문 생성 (Order Creation)
 **POST** `/api/order/orders`
 - **인증**: 필수 (`X-Auth-UserId` 헤더 필요)
-- **요청 본문**:
+- **요청 본문** (`OrderCreateRequest`):
   ```json
   {
     "storeId": 1,
     "recipientName": "홍길동",
-    "paymentMethod": "CARD",
+    "paymentMethod": "card",
     "items": [
       { "productId": 1, "quantity": 2 }
     ]
   }
   ```
+  > **주의**: `totalAmount`는 더 이상 필요하지 않습니다. 백엔드에서 자동으로 계산됩니다.
+
 - **응답 (201 Created)**:
   ```json
   {
@@ -165,33 +194,42 @@ src/
   }
   ```
 
-#### 2. 주문 상세 조회
-**GET** `/api/order/orders/{orderId}`
-- **인증**: 불필요
-- **응답 (200 OK)**: 주문, 결제, 상품 정보 포함
-
-#### 3. 주문 상태 조회
-**GET** `/api/order/orders/status/{orderId}`
-- **인증**: 불필요
-- **응답 (200 OK)**:
+#### 2. 주문 상태 업데이트 (Admin Only)
+**PATCH** `/api/order/orders/{orderId}`
+- **인증**: 관리자 권한 필수 (`X-Auth-Role: ROLE_ADMIN` 또는 `ROLE_SUPER_ADMIN`)
+- **요청 본문** (`OrderStatusUpdateRequest`):
   ```json
   {
-    "success": true,
-    "data": { "orderId": "order_01H1J5BFXCZDMG8RP0WCTFSN5Y", "status": "PAID" }
+    "status": "PREPARING",
+    "reason": "Started food preparation"
   }
   ```
 
-### 💳 결제 관리 API 예시
+#### 3. 통계 조회 (Admin Only)
+**GET** `/api/order/reports/admin/sales/daily?date=2023-06-01&storeId=1`
+- **인증**: 관리자 권한 필수 (`X-Auth-Role: ROLE_ADMIN`)
+- **응답**: 일일 매출 통계, 주문 수, 평균 주문 금액, 피크 시간 등
 
-#### 1. 결제 설정 조회
-**GET** `/api/order/payment/config`
-- **인증**: 필수
-- **응답 (200 OK)**: PortOne 상점 ID 및 채널 키 목록
-
-#### 2. 결제 준비
+#### 4. 결제 준비
 **POST** `/api/order/payment/orders/{orderId}/prepare`
-- **인증**: 필수
-- **응답 (200 OK)**: PortOne 결제에 필요한 정보 (주문명, 금액, 주문번호)
+- **요청 본문** (`PaymentReadyRequest`):
+  ```json
+  {
+    "storeId": 1,
+    "items": [
+      { "itemId": 11, "quantity": 2 }
+    ]
+  }
+  ```
+
+### 🔄 토큰 자동 새로고침 (Automatic Token Refresh)
+
+이 앱은 15초마다 만료되는 짧은 액세스 토큰을 자동으로 새로고침합니다:
+
+- **액세스 토큰**: 15초 후 만료
+- **리프레시 토큰**: 더 긴 유효 기간
+- **자동 처리**: 401 오류 시 자동으로 토큰 새로고침 시도
+- **대기열 관리**: 동시 요청들을 큐에서 관리하여 중복 새로고침 방지
 
 ## 💡 프론트엔드 개발 팁
 
