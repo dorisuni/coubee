@@ -34,6 +34,12 @@ public class StoreResponseDto {
     // category(String) -> storeTag(List<CategoryDto>) 로 변경
     private List<CategoryDto> storeTag;
     
+    private double longitude;
+    private double latitude;
+
+    // Fallback flag to indicate if this data is from fallback mechanism
+    private boolean fallback = false;
+
     // store-service 응답에는 ownerId가 없으므로 제거
     // private Long ownerId;
 }
