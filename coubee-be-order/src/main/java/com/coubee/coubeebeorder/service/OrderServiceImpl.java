@@ -7,12 +7,14 @@ import com.coubee.coubeebeorder.common.exception.NotFound;
 import com.coubee.coubeebeorder.domain.*;
 import com.coubee.coubeebeorder.domain.dto.*;
 import com.coubee.coubeebeorder.domain.repository.OrderRepository;
+import com.coubee.coubeebeorder.domain.repository.OrderRepository.UserOrderSummaryProjection;
 import com.coubee.coubeebeorder.domain.repository.OrderTimestampRepository;
 import com.coubee.coubeebeorder.kafka.producer.KafkaMessageProducer;
 import com.coubee.coubeebeorder.kafka.producer.notification.event.OrderNotificationEvent;
 import com.coubee.coubeebeorder.remote.product.ProductClient;
 import com.coubee.coubeebeorder.remote.store.StoreClient;
 import com.coubee.coubeebeorder.remote.product.ProductResponseDto;
+import com.coubee.coubeebeorder.remote.hotdeal.HotdealResponseDto;
 // import io.portone.sdk.server.payment.CancelPaymentRequest; // Not available in current SDK version
 import io.portone.sdk.server.payment.PaymentClient;
 import feign.FeignException;
@@ -30,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -56,8 +59,8 @@ public class OrderServiceImpl implements OrderService {
 
         String orderId = "order_" + UUID.randomUUID().toString().replace("-", "");
 
-        // First, fetch all product information and calculate total amount
-        int totalAmount = 0;
+        // First, fetch all product information and calculate original amount
+        int originalAmount = 0;
         List<ProductResponseDto> productDetails = new ArrayList<>();
 
         for (OrderCreateRequest.OrderItemRequest itemRequest : request.getItems()) {
@@ -81,7 +84,7 @@ public class OrderServiceImpl implements OrderService {
 
                 // Use salePrice for calculations
                 int itemTotalPrice = product.getSalePrice() * itemRequest.getQuantity();
-                totalAmount += itemTotalPrice;
+                originalAmount += itemTotalPrice;
 
                 productDetails.add(product);
 
@@ -99,9 +102,38 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // Create order with the calculated total amount
+        // Check for active hotdeal and calculate discount
+        int discountAmount = 0;
+        int finalAmount = originalAmount;
+
+        try {
+            log.debug("Checking for active hotdeal for storeId: {}", request.getStoreId());
+            ApiResponseDto<HotdealResponseDto> hotdealResponse = storeClient.getActiveHotdeal(request.getStoreId());
+
+            if (hotdealResponse != null && hotdealResponse.getData() != null) {
+                HotdealResponseDto hotdeal = hotdealResponse.getData();
+                log.info("Active hotdeal found for storeId: {}, saleRate: {}, maxDiscount: {}",
+                        request.getStoreId(), hotdeal.getSaleRate(), hotdeal.getMaxDiscount());
+
+                // Calculate discount amount
+                double calculatedDiscount = originalAmount * hotdeal.getSaleRate();
+                discountAmount = (int) Math.min(calculatedDiscount, hotdeal.getMaxDiscount());
+                finalAmount = originalAmount - discountAmount;
+
+                log.info("Hotdeal applied: originalAmount={}, discountAmount={}, finalAmount={}",
+                        originalAmount, discountAmount, finalAmount);
+            } else {
+                log.debug("No active hotdeal found for storeId: {}", request.getStoreId());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch hotdeal information for storeId: {}, proceeding without discount. Error: {}",
+                    request.getStoreId(), e.getMessage());
+            // Continue without discount if hotdeal service fails
+        }
+
+        // Create order with original amount, discount amount, and final amount
         Order order = Order.createOrder(
-                orderId, userId, request.getStoreId(), totalAmount, request.getRecipientName());
+                orderId, userId, request.getStoreId(), originalAmount, discountAmount, finalAmount, request.getRecipientName());
 
         // Add order items with real product data
         for (int i = 0; i < request.getItems().size(); i++) {
@@ -123,12 +155,13 @@ public class OrderServiceImpl implements OrderService {
 
         orderRepository.save(order);
 
-        log.info("Order created successfully: orderId={}, totalAmount={}", orderId, totalAmount);
+        log.info("Order created successfully: orderId={}, originalAmount={}, discountAmount={}, finalAmount={}",
+                orderId, originalAmount, discountAmount, finalAmount);
 
         return OrderCreateResponse.builder()
                 .orderId(orderId)
                 .paymentId(orderId)
-                .amount(totalAmount)
+                .amount(finalAmount)
                 .orderName(generateOrderName(order.getItems()))
                 .buyerName(request.getRecipientName())
                 .build();
@@ -544,16 +577,25 @@ public class OrderServiceImpl implements OrderService {
                 })
                 .collect(Collectors.toList());
 
+        // Create a list of status history DTOs
+        List<OrderDetailResponse.OrderStatusTimestampDto> historyDtos = order.getStatusHistory().stream()
+                .map(timestamp -> OrderDetailResponse.OrderStatusTimestampDto.builder()
+                        .status(timestamp.getStatus())
+                        .updatedAt(timestamp.getUpdatedAt())
+                        .build())
+                .sorted(java.util.Comparator.comparing(OrderDetailResponse.OrderStatusTimestampDto::getUpdatedAt)) // Ensure chronological order
+                .collect(java.util.stream.Collectors.toList());
+
         return OrderDetailResponse.builder()
                 .orderId(order.getOrderId())
                 .userId(order.getUserId())
                 .storeId(order.getStoreId())
                 .store(storeDetails)
                 .status(order.getStatus())
+                .originalAmount(order.getOriginalAmount())
+                .discountAmount(order.getDiscountAmount())
                 .totalAmount(order.getTotalAmount())
                 .recipientName(order.getRecipientName())
-                .orderToken(order.getOrderToken())
-                .orderQR(order.getOrderQR())
                 .paidAtUnix(order.getPaidAtUnix())
                 .items(itemResponses)
                 .payment(order.getPayment() != null ?
@@ -566,6 +608,7 @@ public class OrderServiceImpl implements OrderService {
                                 .paidAt(order.getPayment().getPaidAt())
                                 .build() : null)
                 .createdAt(order.getCreatedAt())
+                .statusHistory(historyDtos)
                 .build();
     }
 
@@ -590,16 +633,25 @@ public class OrderServiceImpl implements OrderService {
                 })
                 .collect(Collectors.toList());
 
+        // Create a list of status history DTOs
+        List<OrderDetailResponse.OrderStatusTimestampDto> historyDtos = order.getStatusHistory().stream()
+                .map(timestamp -> OrderDetailResponse.OrderStatusTimestampDto.builder()
+                        .status(timestamp.getStatus())
+                        .updatedAt(timestamp.getUpdatedAt())
+                        .build())
+                .sorted(java.util.Comparator.comparing(OrderDetailResponse.OrderStatusTimestampDto::getUpdatedAt)) // Ensure chronological order
+                .collect(java.util.stream.Collectors.toList());
+
         return OrderDetailResponse.builder()
                 .orderId(order.getOrderId())
                 .userId(order.getUserId())
                 .storeId(order.getStoreId())
                 .store(storeDetails) // Full store details
                 .status(order.getStatus())
+                .originalAmount(order.getOriginalAmount())
+                .discountAmount(order.getDiscountAmount())
                 .totalAmount(order.getTotalAmount())
                 .recipientName(order.getRecipientName())
-                .orderToken(order.getOrderToken())
-                .orderQR(order.getOrderQR())
                 .paidAtUnix(order.getPaidAtUnix())
                 .items(itemResponses)
                 .payment(order.getPayment() != null ?
@@ -612,6 +664,7 @@ public class OrderServiceImpl implements OrderService {
                                 .paidAt(order.getPayment().getPaidAt())
                                 .build() : null)
                 .createdAt(order.getCreatedAt())
+                .statusHistory(historyDtos)
                 .build();
     }
 
@@ -659,6 +712,7 @@ public class OrderServiceImpl implements OrderService {
         fallbackStore.setWorkingHour("영업시간 정보 없음");
         // storeTag는 List<CategoryDto>이므로 빈 리스트로 설정
         fallbackStore.setStoreTag(new ArrayList<>());
+        fallbackStore.setFallback(true);
 
         return fallbackStore;
     }
@@ -676,6 +730,7 @@ public class OrderServiceImpl implements OrderService {
         fallbackProduct.setOriginPrice(0);
         fallbackProduct.setSalePrice(0);
         fallbackProduct.setStock(0);
+        fallbackProduct.setFallback(true);
 
         return fallbackProduct;
     }
@@ -719,6 +774,7 @@ public class OrderServiceImpl implements OrderService {
         fallbackStore.setWorkingHour("영업시간 정보 없음");
         // storeTag는 List<CategoryDto>이므로 빈 리스트로 설정
         fallbackStore.setStoreTag(new ArrayList<>());
+        fallbackStore.setFallback(true);
         return fallbackStore;
     }
 
@@ -733,6 +789,32 @@ public class OrderServiceImpl implements OrderService {
         fallbackProduct.setOriginPrice(0);
         fallbackProduct.setSalePrice(0);
         fallbackProduct.setStock(0);
+        fallbackProduct.setFallback(true);
         return fallbackProduct;
+    }
+
+    @Override
+    public UserOrderSummaryDto getUserOrderSummary(Long userId) {
+        Optional<UserOrderSummaryProjection> projectionOpt = orderRepository.findUserOrderSummary(userId);
+
+        if (projectionOpt.isEmpty()) {
+            // Return DTO with zero values if no valid orders found
+            return UserOrderSummaryDto.builder()
+                    .totalOrderCount(0L)
+                    .totalOriginalAmount(0L)
+                    .totalDiscountAmount(0L)
+                    .finalPurchaseAmount(0L)
+                    .build();
+        }
+
+        UserOrderSummaryProjection projection = projectionOpt.get();
+        Long finalPurchaseAmount = projection.getTotalOriginalAmount() - projection.getTotalDiscountAmount();
+
+        return UserOrderSummaryDto.builder()
+                .totalOrderCount(projection.getTotalOrderCount())
+                .totalOriginalAmount(projection.getTotalOriginalAmount())
+                .totalDiscountAmount(projection.getTotalDiscountAmount())
+                .finalPurchaseAmount(finalPurchaseAmount)
+                .build();
     }
 }

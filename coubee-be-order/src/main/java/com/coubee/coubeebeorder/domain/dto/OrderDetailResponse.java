@@ -30,17 +30,19 @@ public class OrderDetailResponse {
     @Schema(description = "Order status", example = "PAID")
     private OrderStatus status;
 
-    @Schema(description = "Total order amount", example = "200")
+    @Schema(description = "Original order amount (before discount)", example = "30000")
+    private Integer originalAmount;
+
+    @Schema(description = "Discount amount applied", example = "5000")
+    private Integer discountAmount;
+
+    @Schema(description = "Total order amount (after discount)", example = "200")
     private Integer totalAmount;
 
     @Schema(description = "Recipient name", example = "홍길동")
     private String recipientName;
 
-    @Schema(description = "Order token (QR/barcode)", example = "abcdef123456")
-    private String orderToken;
 
-    @Schema(description = "Order QR code (Base64)", example = "b3JkZXJfYjc4MzM2ODZmMjViNDhlMDg2MjYxMjM0NTY3OGFiY2Q=")
-    private String orderQR;
 
     @Schema(description = "Order creation time", example = "2023-06-01T14:30:00")
     private LocalDateTime createdAt;
@@ -56,6 +58,23 @@ public class OrderDetailResponse {
 
     @Schema(description = "Payment information")
     private PaymentResponse payment;
+
+    @Schema(description = "The complete history of status changes for the order, sorted chronologically.")
+    private List<OrderStatusTimestampDto> statusHistory;
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Schema(description = "Represents a single status change event in an order's history.")
+    public static class OrderStatusTimestampDto {
+
+        @Schema(description = "The status of the order at this point in time.", example = "PAID")
+        private OrderStatus status;
+
+        @Schema(description = "The timestamp when this status was set.", example = "2023-06-01T14:35:00")
+        private LocalDateTime updatedAt;
+    }
 
     @Getter
     @Builder

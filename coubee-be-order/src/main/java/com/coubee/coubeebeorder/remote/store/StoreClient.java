@@ -1,6 +1,7 @@
 package com.coubee.coubeebeorder.remote.store;
 
 import com.coubee.coubeebeorder.common.dto.ApiResponseDto;
+import com.coubee.coubeebeorder.remote.hotdeal.HotdealResponseDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,7 +22,6 @@ import java.util.Map;
  */
 @FeignClient(
     name = "coubee-be-store-service",
-    url = "http://coubee-be-store-service:8080",
     configuration = com.coubee.coubeebeorder.config.FeignConfig.class
 )
 public interface StoreClient {
@@ -65,4 +65,22 @@ public interface StoreClient {
             @RequestParam("storeIds") List<Long> storeIds,
             @RequestHeader("X-Auth-UserId") Long userId
     );
+
+    /**
+     * 스토어의 활성 핫딜 정보 조회
+     *
+     * @param storeId 조회할 스토어의 ID
+     * @return HotdealResponseDto를 포함한 ApiResponseDto (핫딜이 없으면 data는 null)
+     */
+    @GetMapping("/backend/store/{storeId}/hotdeal/active")
+    ApiResponseDto<HotdealResponseDto> getActiveHotdeal(@PathVariable("storeId") Long storeId);
+
+    /**
+     * 스토어 상태 검증 (APPROVED 상태인지 확인)
+     *
+     * @param storeId 검증할 스토어의 ID
+     * @return 스토어가 APPROVED 상태이면 true, 아니면 false를 포함한 ApiResponseDto
+     */
+    @GetMapping("/backend/store/{storeId}/validate-status")
+    ApiResponseDto<Boolean> isStoreApproved(@PathVariable("storeId") Long storeId);
 }
