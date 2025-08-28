@@ -150,7 +150,7 @@ apiClient.interceptors.response.use(
 
         // 토큰 새로고침 요청 - 별도의 axios 인스턴스 사용하여 무한 루프 방지
         const refreshResponse = await axios.post(`${BASE_URL}/api/user/auth/refresh`, {
-          refreshToken: refreshToken
+          token: refreshToken  // 백엔드는 'token' 필드를 기대함
         }, {
           headers: {
             'Content-Type': 'application/json'
@@ -159,31 +159,21 @@ apiClient.interceptors.response.use(
 
         // 응답 구조 분석 및 토큰 추출
         let accessToken: string;
-        let newRefreshToken: string;
+        const currentRefreshToken = refreshToken; // 기존 리프레시 토큰 유지
 
-        // 응답 구조에 따른 토큰 추출
-        if (refreshResponse.data?.data?.accessRefreshToken) {
-          // 로그인과 같은 구조인 경우
-          accessToken = refreshResponse.data.data.accessRefreshToken.access.token;
-          newRefreshToken = refreshResponse.data.data.accessRefreshToken.refresh.token;
-        } else if (refreshResponse.data?.data?.access && refreshResponse.data?.data?.refresh) {
-          // 직접 access/refresh 구조인 경우
+        // 백엔드 refresh 엔드포인트는 새로운 access token만 반환
+        if (refreshResponse.data?.data?.access?.token) {
           accessToken = refreshResponse.data.data.access.token;
-          newRefreshToken = refreshResponse.data.data.refresh.token;
-        } else if (refreshResponse.data?.accessToken && refreshResponse.data?.refreshToken) {
-          // 직접 accessToken/refreshToken 구조인 경우
-          accessToken = refreshResponse.data.accessToken;
-          newRefreshToken = refreshResponse.data.refreshToken;
         } else {
-          throw new Error('Invalid refresh response structure');
+          throw new Error('Invalid refresh response structure - missing access token');
         }
 
-        if (!accessToken || !newRefreshToken) {
-          throw new Error('Missing tokens in refresh response');
+        if (!accessToken) {
+          throw new Error('Missing access token in refresh response');
         }
 
-        // 새 토큰들 저장
-        await tokenManager.saveTokens(accessToken, newRefreshToken);
+        // 새 액세스 토큰과 기존 리프레시 토큰 저장
+        await tokenManager.saveTokens(accessToken, currentRefreshToken);
 
         // axios 기본 헤더 업데이트
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
@@ -200,8 +190,14 @@ apiClient.interceptors.response.use(
         // 원래 요청 재시도
         return apiClient(originalRequest);
 
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         console.error('Token refresh failed:', refreshError);
+        console.error('Refresh error details:', {
+          status: refreshError.response?.status,
+          statusText: refreshError.response?.statusText,
+          data: refreshError.response?.data,
+          message: refreshError.message
+        });
 
         // 토큰 새로고침 실패 시 모든 토큰 삭제
         await tokenManager.removeTokens();
